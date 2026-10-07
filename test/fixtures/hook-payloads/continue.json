@@ -1,0 +1,44 @@
+{
+ "source": "DERIVED from continuedev/continue extensions/cli/src/hooks (types.ts, fireHook.ts): Claude Code-compatible fields. No docs page found. Untested live.",
+ "cases": [
+  {
+   "name": "prompt submitted",
+   "payload": {
+    "session_id": "cn-1",
+    "transcript_path": "C:Usersme.continuesessionscn-1.json",
+    "cwd": "C:proj",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "explain this error"
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "explain this error"
+    }
+   ],
+   "session": "cn-1",
+   "stdout": ""
+  },
+  {
+   "name": "stop (cn always sends stop_hook_active true)",
+   "payload": {
+    "session_id": "cn-1",
+    "transcript_path": "x",
+    "cwd": "C:proj",
+    "permission_mode": "default",
+    "hook_event_name": "Stop",
+    "stop_hook_active": true,
+    "last_assistant_message": "The import path is wrong."
+   },
+   "expect": [
+    {
+     "event": "reply",
+     "text": "The import path is wrong.",
+     "id": "ID"
+    }
+   ],
+   "session": "cn-1"
+  }
+ ]
+}

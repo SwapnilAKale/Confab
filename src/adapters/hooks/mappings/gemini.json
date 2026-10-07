@@ -1,0 +1,36 @@
+{
+  "about": "Gemini CLI hooks (~/.gemini/settings.json). Follows the defaults: BeforeAgent.prompt, AfterAgent.prompt_response, session_id. Stdout must be JSON only. Not used by Antigravity, which has its own hooks.json.",
+  "agent": "gemini",
+  "stdout": {
+    "*": "{}"
+  },
+  "install": {
+    "requires": {
+      "name": "Gemini CLI",
+      "binaries": [
+        "PATH:gemini.cmd",
+        "PATH:gemini.exe",
+        "PATH:gemini"
+      ],
+      "marker": null,
+      "needs": "hooks (BeforeAgent, AfterAgent)"
+    },
+    "file": "~/.gemini/settings.json",
+    "format": "nested",
+    "events": {
+      "BeforeAgent": {
+        "name": "local-voice",
+        "timeout": 5000
+      },
+      "AfterAgent": {
+        "name": "local-voice",
+        "timeout": 5000
+      },
+      "SessionEnd": {
+        "name": "local-voice",
+        "timeout": 5000
+      }
+    },
+    "after": "Gemini CLI timeouts are in milliseconds."
+  }
+}

@@ -1,0 +1,67 @@
+{
+ "source": "DERIVED from the documented fields in google-gemini/gemini-cli docs/hooks/reference.md (base fields; BeforeAgent.prompt; AfterAgent.prompt, prompt_response, stop_hook_active). The docs give no verbatim JSON. Untested live.",
+ "cases": [
+  {
+   "name": "prompt submitted",
+   "payload": {
+    "session_id": "s1",
+    "transcript_path": "C:Usersme.gemini\tmppchatssession.json",
+    "cwd": "C:proj",
+    "hook_event_name": "BeforeAgent",
+    "timestamp": "2026-10-07T12:00:00.000Z",
+    "prompt": "hello there"
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "hello there"
+    }
+   ],
+   "session": "s1",
+   "stdout": "{}"
+  },
+  {
+   "name": "final response (also carries the prompt, so the turn is reported again first)",
+   "payload": {
+    "session_id": "s1",
+    "transcript_path": "x",
+    "cwd": "C:proj",
+    "hook_event_name": "AfterAgent",
+    "timestamp": "2026-10-07T12:00:05.000Z",
+    "prompt": "hello there",
+    "prompt_response": "Hi. How can I help?",
+    "stop_hook_active": false
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "hello there"
+    },
+    {
+     "event": "reply",
+     "text": "Hi. How can I help?",
+     "id": "ID"
+    }
+   ],
+   "session": "s1",
+   "stdout": "{}"
+  },
+  {
+   "name": "session end",
+   "payload": {
+    "session_id": "s1",
+    "transcript_path": "x",
+    "cwd": "C:proj",
+    "hook_event_name": "SessionEnd",
+    "timestamp": "t",
+    "reason": "exit"
+   },
+   "expect": [
+    {
+     "event": "detach"
+    }
+   ],
+   "session": "s1"
+  }
+ ]
+}

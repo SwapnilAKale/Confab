@@ -1,0 +1,21 @@
+{
+  "about": "Claude Code. Follows the default conventions.",
+  "agent": "claude-code",
+  "ignore": [
+    "PermissionRequest",
+    "Notification",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "StopFailure"
+  ],
+  "install": {
+    "plugin": {
+      "marketplace": "local-voice-local",
+      "name": "local-voice",
+      "path": "src/adapters/claude-code"
+    }
+  },
+  "skipIf": [
+    "cursor_version"
+  ]
+}

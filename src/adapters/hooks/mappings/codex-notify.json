@@ -1,0 +1,13 @@
+{
+  "about": "Codex legacy notify program (agent-turn-complete). The JSON payload is the last command-line argument. Codex has one notify slot; the installer never writes it.",
+  "agent": "codex",
+  "input": "argv",
+  "eventField": ["type"],
+  "events": {"turn": [], "reply": ["agent-turn-complete"], "detach": []},
+  "fields": {
+    "prompt": ["input-messages"],
+    "reply": ["last-assistant-message"],
+    "session": ["thread-id"],
+    "turn": ["turn-id"]
+  }
+}

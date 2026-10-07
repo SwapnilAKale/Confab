@@ -1,0 +1,15 @@
+{
+  "source": "openai/codex codex-rs/hooks/src/schema.rs (UserPromptSubmitCommandInput, StopCommandInput) and learn.chatgpt.com/docs/hooks. Not captured live: the Codex subscription has ended.",
+  "cases": [
+    {"name": "prompt submitted", "payload": {"session_id": "019a-thread", "turn_id": "turn-7", "transcript_path": null, "cwd": "C:\\repo", "hook_event_name": "UserPromptSubmit", "model": "gpt-5-codex", "permission_mode": "default", "prompt": "Add a test for the parser."},
+     "expect": [{"event": "turn", "text": "Add a test for the parser.", "turnId": "turn-7"}], "session": "019a-thread"},
+    {"name": "steered message shares the running turn id", "payload": {"session_id": "019a-thread", "turn_id": "turn-7", "transcript_path": null, "cwd": "C:\\repo", "hook_event_name": "UserPromptSubmit", "model": "gpt-5-codex", "permission_mode": "default", "prompt": "Also cover empty input."},
+     "expect": [{"event": "turn", "text": "Also cover empty input.", "turnId": "turn-7"}], "session": "019a-thread"},
+    {"name": "turn finished", "payload": {"session_id": "019a-thread", "turn_id": "turn-7", "transcript_path": null, "cwd": "C:\\repo", "hook_event_name": "Stop", "model": "gpt-5-codex", "permission_mode": "default", "stop_hook_active": false, "last_assistant_message": "Added two parser tests."},
+     "expect": [{"event": "reply", "text": "Added two parser tests.", "id": "ID", "turnId": "turn-7"}], "session": "019a-thread"},
+    {"name": "turn finished with no message", "payload": {"session_id": "019a-thread", "turn_id": "turn-8", "transcript_path": null, "cwd": "C:\\repo", "hook_event_name": "Stop", "model": "gpt-5-codex", "permission_mode": "default", "stop_hook_active": false, "last_assistant_message": null},
+     "expect": [], "missing": ["reply"]},
+    {"name": "session closed", "payload": {"session_id": "019a-thread", "hook_event_name": "SessionEnd", "cwd": "C:\\repo", "transcript_path": null, "model": "gpt-5-codex", "permission_mode": "default", "reason": "exit"},
+     "expect": [{"event": "detach"}], "session": "019a-thread"}
+  ]
+}

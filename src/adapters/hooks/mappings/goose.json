@@ -1,0 +1,72 @@
+{
+  "about": "Goose hooks from a plugin folder (~/.agents/plugins/local-voice). The event name is in \"event\"; UserPromptSubmit carries the prompt in \"message\". Goose runs hooks with sh -c, even on Windows.",
+  "agent": "goose",
+  "eventField": [
+    "event",
+    "hook_event_name"
+  ],
+  "fields": {
+    "prompt": [
+      "message",
+      "prompt"
+    ]
+  },
+  "install": {
+    "requires": {
+      "name": "Goose",
+      "binaries": [
+        "PATH:goose.exe",
+        "PATH:goose"
+      ],
+      "marker": null,
+      "needs": "hooks",
+      "alsoNeeds": [
+        {
+          "binaries": [
+            "PATH:sh.exe",
+            "PATH:sh"
+          ],
+          "message": "Goose runs hooks with \"sh -c\" even on Windows, and no sh was found on PATH (Git for Windows provides one)."
+        }
+      ]
+    },
+    "ownDir": "~/.agents/plugins/local-voice",
+    "files": {
+      "~/.agents/plugins/local-voice/plugin.json": {
+        "name": "local-voice",
+        "version": "1.0.0",
+        "description": "Local Voice read-aloud: reports prompts and final replies (runs adapters/hooks/adapter.cjs)."
+      },
+      "~/.agents/plugins/local-voice/hooks/hooks.json": {
+        "hooks": {
+          "UserPromptSubmit": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "{{command:UserPromptSubmit}}",
+                  "timeout": 5
+                }
+              ]
+            }
+          ],
+          "Stop": [
+            {
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "{{command:Stop}}",
+                  "timeout": 5
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "events": {
+      "UserPromptSubmit": {},
+      "Stop": {}
+    }
+  }
+}

@@ -1,0 +1,80 @@
+{
+ "source": "Verbatim tool_info examples from docs.devin.ai/desktop/cascade/hooks.md (pre_user_prompt, post_cascade_response_with_transcript), with the documented common fields (trajectory_id, execution_id, timestamp, model_name) added. Transcript lines follow the documented planner_response.response shape; synthetic text. Untested live.",
+ "transcript": [
+  {
+   "user_input": {
+    "text": "can you run the echo hello command"
+   }
+  },
+  {
+   "planner_response": {
+    "response": "I will run it."
+   }
+  },
+  {
+   "tool_call": {
+    "name": "run_command"
+   }
+  },
+  {
+   "planner_response": {
+    "response": "Done. It printed hello."
+   }
+  }
+ ],
+ "cases": [
+  {
+   "name": "prompt submitted",
+   "payload": {
+    "agent_action_name": "pre_user_prompt",
+    "trajectory_id": "traj-1",
+    "execution_id": "exec-1",
+    "timestamp": "2026-10-07T12:00:00Z",
+    "model_name": "swe-1.5",
+    "tool_info": {
+     "user_prompt": "can you run the echo hello command"
+    }
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "can you run the echo hello command"
+    }
+   ],
+   "session": "traj-1",
+   "stdout": ""
+  },
+  {
+   "name": "response with transcript: the last planner response is the reply",
+   "payload": {
+    "agent_action_name": "post_cascade_response_with_transcript",
+    "trajectory_id": "traj-1",
+    "execution_id": "exec-1",
+    "timestamp": "2026-10-07T12:00:09Z",
+    "model_name": "swe-1.5",
+    "tool_info": {
+     "transcript_path": "TRANSCRIPT"
+    }
+   },
+   "expect": [
+    {
+     "event": "reply",
+     "text": "Done. It printed hello.",
+     "id": "ID"
+    }
+   ],
+   "session": "traj-1"
+  },
+  {
+   "name": "post_cascade_response (markdown of all steps) is not used",
+   "payload": {
+    "agent_action_name": "post_cascade_response",
+    "trajectory_id": "traj-1",
+    "tool_info": {
+     "response": "### Planner Response\n\nI'll help you create that file."
+    }
+   },
+   "expect": []
+  }
+ ]
+}

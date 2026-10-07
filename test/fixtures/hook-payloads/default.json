@@ -1,0 +1,13 @@
+{
+  "source": "An unknown harness that follows the common conventions, and Gemini CLI BeforeAgent/AfterAgent (geminicli.com/docs/hooks/reference), with no mapping file.",
+  "cases": [
+    {"name": "conventional prompt", "harness": "my-agent", "payload": {"hook_event_name": "UserPromptSubmit", "session_id": "s9", "turn_id": "t1", "prompt": "Summarise the diff."},
+     "expect": [{"event": "turn", "text": "Summarise the diff.", "turnId": "t1"}], "session": "s9"},
+    {"name": "conventional reply", "harness": "my-agent", "payload": {"hook_event_name": "Stop", "conversation_id": "s9", "turn_id": "t1", "last_assistant_message": "Two files changed."},
+     "expect": [{"event": "reply", "text": "Two files changed.", "id": "ID", "turnId": "t1"}], "session": "s9"},
+    {"name": "Gemini CLI AfterAgent", "harness": "gemini", "payload": {"session_id": "g1", "transcript_path": "x", "cwd": "C:\\repo", "hook_event_name": "AfterAgent", "timestamp": "2026-10-07T10:00:00Z", "prompt": "List the steps.", "prompt_response": "First build, then test.", "stop_hook_active": false},
+     "expect": [{"event": "turn", "text": "List the steps."}, {"event": "reply", "text": "First build, then test.", "id": "ID"}], "session": "g1"},
+    {"name": "unmapped field names are reported as missing", "harness": "my-agent", "payload": {"hook_event_name": "Stop", "session_id": "s9", "text": "Different field name."},
+     "expect": [], "missing": ["reply"]}
+  ]
+}

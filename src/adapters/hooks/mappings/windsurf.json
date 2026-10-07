@@ -1,0 +1,56 @@
+{
+  "about": "Windsurf / Devin Desktop Cascade hooks. Payloads nest their data in tool_info; the reply is read from the transcript named by post_cascade_response_with_transcript (post_cascade_response mixes in tool actions).",
+  "agent": "windsurf",
+  "eventField": [
+    "agent_action_name"
+  ],
+  "events": {
+    "turn": [
+      "pre_user_prompt"
+    ],
+    "reply": [
+      "post_cascade_response_with_transcript"
+    ],
+    "detach": []
+  },
+  "fields": {
+    "prompt": [
+      "tool_info.user_prompt"
+    ],
+    "session": [
+      "trajectory_id"
+    ],
+    "turn": [],
+    "transcript": [
+      "tool_info.transcript_path"
+    ]
+  },
+  "transcript": "windsurf",
+  "install": {
+    "requires": {
+      "name": "Windsurf",
+      "binaries": [
+        "%LOCALAPPDATA%/Programs/Windsurf/Windsurf.exe",
+        "%LOCALAPPDATA%/Programs/Devin/*.exe",
+        "PATH:windsurf.cmd",
+        "PATH:windsurf"
+      ],
+      "marker": null,
+      "needs": "Cascade hooks"
+    },
+    "file": "~/.codeium/windsurf/hooks.json",
+    "format": "flat",
+    "commandKeys": [
+      "command",
+      "powershell"
+    ],
+    "events": {
+      "pre_user_prompt": {
+        "show_output": false
+      },
+      "post_cascade_response_with_transcript": {
+        "show_output": false
+      }
+    }
+  }
+}

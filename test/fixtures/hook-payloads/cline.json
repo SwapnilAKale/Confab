@@ -1,0 +1,79 @@
+{
+ "source": "DERIVED from cline/cline source (apps/vscode/src/core/hooks/templates.ts comments and proto/cline/hooks.proto, camelCase proto3 JSON). The docs give no verbatim JSON. Untested live.",
+ "cases": [
+  {
+   "name": "prompt submitted",
+   "payload": {
+    "clineVersion": "3.40.0",
+    "hookName": "UserPromptSubmit",
+    "timestamp": "1791330000000",
+    "taskId": "t1",
+    "workspaceRoots": [
+     "C:proj"
+    ],
+    "userId": "u",
+    "userPromptSubmit": {
+     "prompt": "add a unit test",
+     "attachments": []
+    }
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "add a unit test"
+    }
+   ],
+   "session": "t1",
+   "stdout": "{\"cancel\":false,\"contextModification\":\"\",\"errorMessage\":\"\"}"
+  },
+  {
+   "name": "task complete",
+   "payload": {
+    "clineVersion": "3.40.0",
+    "hookName": "TaskComplete",
+    "timestamp": "1791330009000",
+    "taskId": "t1",
+    "workspaceRoots": [
+     "C:proj"
+    ],
+    "userId": "u",
+    "taskComplete": {
+     "taskMetadata": {
+      "taskId": "t1",
+      "ulid": "",
+      "initialTask": "add a unit test",
+      "result": "Added one test."
+     }
+    }
+   },
+   "expect": [
+    {
+     "event": "reply",
+     "text": "Added one test.",
+     "id": "ID"
+    }
+   ],
+   "session": "t1"
+  },
+  {
+   "name": "task cancelled",
+   "payload": {
+    "clineVersion": "3.40.0",
+    "hookName": "TaskCancel",
+    "timestamp": "t",
+    "taskId": "t1",
+    "taskCancel": {
+     "taskMetadata": {
+      "taskId": "t1"
+     }
+    }
+   },
+   "expect": [
+    {
+     "event": "detach"
+    }
+   ],
+   "session": "t1"
+  }
+ ]
+}

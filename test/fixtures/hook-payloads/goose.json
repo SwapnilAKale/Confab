@@ -1,0 +1,38 @@
+{
+ "source": "Verbatim examples from goose-docs.ai/docs/guides/context-engineering/hooks (UserPromptSubmit, Stop). Untested live.",
+ "cases": [
+  {
+   "name": "prompt submitted",
+   "payload": {
+    "event": "UserPromptSubmit",
+    "session_id": "abc-123",
+    "matcher_context": "summarize this file",
+    "message": "summarize this file"
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "summarize this file"
+    }
+   ],
+   "session": "abc-123",
+   "stdout": ""
+  },
+  {
+   "name": "stop",
+   "payload": {
+    "event": "Stop",
+    "session_id": "abc-123",
+    "last_assistant_message": "Done. I updated the file and ran the tests."
+   },
+   "expect": [
+    {
+     "event": "reply",
+     "text": "Done. I updated the file and ran the tests.",
+     "id": "ID"
+    }
+   ],
+   "session": "abc-123"
+  }
+ ]
+}

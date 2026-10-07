@@ -1,0 +1,585 @@
+{
+  "provenance": "Native VAD event timings from saved d52540fe microphone.wav, 40-58 seconds. No recognizer text or audio included.",
+  "batches": [
+    {
+      "head": 707200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911112",
+          "timing": {
+            "start": 43.116,
+            "end": 44.192
+          }
+        }
+      ]
+    },
+    {
+      "head": 710400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911112",
+          "timing": {
+            "start": 43.116,
+            "end": 44.384
+          }
+        }
+      ]
+    },
+    {
+      "head": 713600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911112",
+          "timing": {
+            "start": 43.116,
+            "end": 44.576
+          }
+        }
+      ]
+    },
+    {
+      "head": 716800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911112",
+          "timing": {
+            "start": 43.116,
+            "end": 44.8
+          }
+        }
+      ]
+    },
+    {
+      "head": 720000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911112",
+          "timing": {
+            "start": 43.116,
+            "end": 44.992
+          }
+        }
+      ]
+    },
+    {
+      "head": 723200,
+      "flush": false,
+      "events": [
+        {
+          "type": "segment",
+          "utteranceId": "8472474562521911112",
+          "timing": {
+            "start": 43.116,
+            "end": 45.056,
+            "nativeStart": 43.616,
+            "onsetMs": 500
+          }
+        }
+      ]
+    },
+    {
+      "head": 752000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911113",
+          "timing": {
+            "start": 45.9,
+            "end": 46.976
+          }
+        }
+      ]
+    },
+    {
+      "head": 755200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911113",
+          "timing": {
+            "start": 45.9,
+            "end": 47.2
+          }
+        }
+      ]
+    },
+    {
+      "head": 758400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911113",
+          "timing": {
+            "start": 45.9,
+            "end": 47.392
+          }
+        }
+      ]
+    },
+    {
+      "head": 761600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911113",
+          "timing": {
+            "start": 45.9,
+            "end": 47.584
+          }
+        }
+      ]
+    },
+    {
+      "head": 764800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911113",
+          "timing": {
+            "start": 45.9,
+            "end": 47.776
+          }
+        }
+      ]
+    },
+    {
+      "head": 768000,
+      "flush": false,
+      "events": [
+        {
+          "type": "segment",
+          "utteranceId": "8472474562521911113",
+          "timing": {
+            "start": 45.9,
+            "end": 47.904,
+            "nativeStart": 46.4,
+            "onsetMs": 500
+          }
+        }
+      ]
+    },
+    {
+      "head": 780800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 48.8
+          }
+        }
+      ]
+    },
+    {
+      "head": 784000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 48.992
+          }
+        }
+      ]
+    },
+    {
+      "head": 787200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 49.184
+          }
+        }
+      ]
+    },
+    {
+      "head": 790400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 49.376
+          }
+        }
+      ]
+    },
+    {
+      "head": 793600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 49.6
+          }
+        }
+      ]
+    },
+    {
+      "head": 796800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 49.792
+          }
+        }
+      ]
+    },
+    {
+      "head": 800000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 49.984
+          }
+        }
+      ]
+    },
+    {
+      "head": 803200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 50.176
+          }
+        }
+      ]
+    },
+    {
+      "head": 806400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 50.4
+          }
+        }
+      ]
+    },
+    {
+      "head": 809600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 50.592
+          }
+        }
+      ]
+    },
+    {
+      "head": 812800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 50.784
+          }
+        }
+      ]
+    },
+    {
+      "head": 816000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 50.976
+          }
+        }
+      ]
+    },
+    {
+      "head": 819200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 51.2
+          }
+        }
+      ]
+    },
+    {
+      "head": 822400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 51.392
+          }
+        }
+      ]
+    },
+    {
+      "head": 825600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 51.584
+          }
+        }
+      ]
+    },
+    {
+      "head": 828800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 51.776
+          }
+        }
+      ]
+    },
+    {
+      "head": 832000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 52
+          }
+        }
+      ]
+    },
+    {
+      "head": 835200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 52.192
+          }
+        }
+      ]
+    },
+    {
+      "head": 838400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 52.384
+          }
+        }
+      ]
+    },
+    {
+      "head": 841600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 52.576
+          }
+        }
+      ]
+    },
+    {
+      "head": 844800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 52.8
+          }
+        }
+      ]
+    },
+    {
+      "head": 848000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 52.992
+          }
+        }
+      ]
+    },
+    {
+      "head": 851200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 53.184
+          }
+        }
+      ]
+    },
+    {
+      "head": 854400,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 53.376
+          }
+        }
+      ]
+    },
+    {
+      "head": 857600,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 53.6
+          }
+        }
+      ]
+    },
+    {
+      "head": 860800,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 53.792
+          }
+        }
+      ]
+    },
+    {
+      "head": 864000,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 53.984
+          }
+        }
+      ]
+    },
+    {
+      "head": 867200,
+      "flush": false,
+      "events": [
+        {
+          "type": "activity",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 54.176
+          }
+        }
+      ]
+    },
+    {
+      "head": 870400,
+      "flush": false,
+      "events": [
+        {
+          "type": "segment",
+          "utteranceId": "8472474562521911114",
+          "timing": {
+            "start": 47.904,
+            "end": 54.336,
+            "nativeStart": 48.256,
+            "onsetMs": 352
+          }
+        }
+      ]
+    }
+  ]
+}

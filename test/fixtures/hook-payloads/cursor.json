@@ -1,0 +1,14 @@
+{
+  "source": "cursor.com/docs/agent/hooks (common fields; beforeSubmitPrompt prompt/attachments; afterAgentResponse text; stop status/loop_count) and the payload builder in Cursor 3.22.12 (extensions/cursor-agent-exec/dist/main.js: conversation_id, generation_id, model, text, token counts). Mojibake case reproduced through Cursor's own Windows launch on this PC. Untested live.",
+  "cases": [
+    {"name": "prompt submitted", "payload": {"conversation_id": "conv-1", "generation_id": "gen-1", "model": "claude-sonnet-5-5", "hook_event_name": "beforeSubmitPrompt", "cursor_version": "3.22.12", "workspace_roots": ["C:/repo"], "user_email": null, "transcript_path": null, "prompt": "Explain this function.", "attachments": []},
+     "expect": [{"event": "turn", "text": "Explain this function.", "turnId": "gen-1"}], "session": "conv-1", "stdout": "{\"continue\":true}"},
+    {"name": "prompt garbled by Windows PowerShell 5.1 is repaired", "payload": {"conversation_id": "conv-1", "generation_id": "gen-2", "hook_event_name": "beforeSubmitPrompt", "cursor_version": "3.22.12", "prompt": "CafÃ©, 5 km â€” âœ“ done", "attachments": []},
+     "expect": [{"event": "turn", "text": "Café, 5 km — ✓ done", "turnId": "gen-2"}], "session": "conv-1"},
+    {"name": "each assistant message is a candidate, not yet the reply", "payload": {"conversation_id": "conv-1", "generation_id": "gen-1", "model": "claude-sonnet-5-5", "hook_event_name": "afterAgentResponse", "cursor_version": "3.22.12", "workspace_roots": ["C:/repo"], "user_email": null, "transcript_path": null, "text": "It parses the header.", "input_tokens": 120, "output_tokens": 9},
+     "expect": [{"event": "reply", "text": "It parses the header.", "id": "ID", "final": false, "turnId": "gen-1"}], "session": "conv-1", "stdout": ""},
+    {"name": "stop ends the turn and commits the last candidate", "payload": {"conversation_id": "conv-1", "generation_id": "gen-1", "hook_event_name": "stop", "cursor_version": "3.22.12", "status": "completed", "loop_count": 0},
+     "expect": [{"event": "reply-end", "status": "completed", "turnId": "gen-1"}], "session": "conv-1"},
+    {"name": "session closed", "payload": {"conversation_id": "conv-1", "hook_event_name": "sessionEnd"}, "expect": [{"event": "detach"}], "session": "conv-1"}
+  ]
+}

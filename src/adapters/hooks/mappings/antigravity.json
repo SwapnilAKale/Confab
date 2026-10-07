@@ -1,0 +1,45 @@
+{
+  "about": "Google Antigravity (2.0 app, IDE and agy CLI share ~/.gemini/config/hooks.json). Hook payloads carry no event name and no text: the event comes from the command line and the prompt and reply from the transcript file the hook names.",
+  "agent": "antigravity",
+  "eventField": [],
+  "events": {
+    "turn": [],
+    "reply": [
+      "Stop"
+    ],
+    "detach": []
+  },
+  "fields": {
+    "session": [
+      "conversationId"
+    ],
+    "transcript": [
+      "transcriptPath"
+    ]
+  },
+  "transcript": "antigravity",
+  "stdout": {
+    "*": "{}"
+  },
+  "install": {
+    "requires": {
+      "name": "Antigravity",
+      "binaries": [
+        "%LOCALAPPDATA%/Programs/antigravity/resources/bin/language_server.exe",
+        "%LOCALAPPDATA%/Programs/Antigravity IDE/resources/bin/language_server.exe",
+        "%LOCALAPPDATA%/agy/bin/*.exe"
+      ],
+      "marker": "transcriptPath",
+      "needs": "hooks whose payload names the transcript (transcriptPath)"
+    },
+    "file": "~/.gemini/config/hooks.json",
+    "format": "group",
+    "group": "local-voice",
+    "eventArg": true,
+    "events": {
+      "Stop": {
+        "timeout": 5
+      }
+    }
+  }
+}

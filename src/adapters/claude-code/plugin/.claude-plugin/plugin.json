@@ -1,0 +1,5 @@
+{
+  "name": "local-voice",
+  "version": "0.8.0",
+  "description": "Local Voice read-aloud hooks for Claude Code."
+}

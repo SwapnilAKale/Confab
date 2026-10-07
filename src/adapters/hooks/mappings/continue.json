@@ -1,0 +1,29 @@
+{
+  "about": "Continue CLI (cn) hooks, Claude Code-compatible settings. Follows the default conventions. cn also reads ~/.claude/settings.json; Local Voice's Claude Code hooks live in its plugin, not there.",
+  "agent": "continue",
+  "install": {
+    "requires": {
+      "name": "Continue CLI (cn)",
+      "binaries": [
+        "PATH:cn.cmd",
+        "PATH:cn.exe",
+        "PATH:cn"
+      ],
+      "marker": null,
+      "needs": "hooks"
+    },
+    "file": "~/.continue/settings.json",
+    "format": "nested",
+    "events": {
+      "UserPromptSubmit": {
+        "timeout": 5
+      },
+      "Stop": {
+        "timeout": 5
+      },
+      "SessionEnd": {
+        "timeout": 5
+      }
+    }
+  }
+}

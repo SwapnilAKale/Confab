@@ -1,0 +1,14 @@
+{
+  "name": "local-voice-local",
+  "owner": {
+    "name": "Local Voice"
+  },
+  "plugins": [
+    {
+      "name": "local-voice",
+      "source": "./plugin",
+      "description": "Local Voice read-aloud hooks for Claude Code.",
+      "version": "0.8.0"
+    }
+  ]
+}

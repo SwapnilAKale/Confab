@@ -1,0 +1,65 @@
+{
+  "about": "Cursor IDE hooks. afterAgentResponse fires per assistant message (in-between ones too), so each is a candidate and stop (status completed) commits the last one. generation_id is the turn id. On Windows Cursor pipes the payload through PowerShell, adding a BOM and, under Windows PowerShell 5.1, Windows-1252 mojibake; repairEncoding undoes it.",
+  "agent": "cursor",
+  "events": {
+    "turn": [
+      "beforeSubmitPrompt"
+    ],
+    "reply": [],
+    "candidate": [
+      "afterAgentResponse"
+    ],
+    "end": [
+      "stop"
+    ],
+    "detach": [
+      "sessionEnd"
+    ]
+  },
+  "fields": {
+    "reply": [
+      "text"
+    ],
+    "turn": [
+      "generation_id"
+    ],
+    "status": [
+      "status"
+    ]
+  },
+  "stdout": {
+    "beforeSubmitPrompt": "{\"continue\":true}"
+  },
+  "install": {
+    "requires": {
+      "name": "Cursor",
+      "binaries": [
+        "%LOCALAPPDATA%/Programs/cursor/resources/app/extensions/cursor-agent-exec/dist/main.js",
+        "%LOCALAPPDATA%/Programs/cursor/Cursor.exe",
+        "PATH:cursor.cmd"
+      ],
+      "marker": "afterAgentResponse",
+      "needs": "hooks with beforeSubmitPrompt, afterAgentResponse and stop"
+    },
+    "file": "~/.cursor/hooks.json",
+    "format": "flat",
+    "top": {
+      "version": 1
+    },
+    "events": {
+      "beforeSubmitPrompt": {
+        "timeout": 5
+      },
+      "afterAgentResponse": {
+        "timeout": 5
+      },
+      "stop": {
+        "timeout": 5
+      },
+      "sessionEnd": {
+        "timeout": 5
+      }
+    }
+  },
+  "repairEncoding": "cp1252"
+}

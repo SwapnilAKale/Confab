@@ -1,0 +1,57 @@
+{
+  "about": "Cline hooks: one PowerShell script per hook, named after it, in ~/Documents/Cline/Hooks. Payload fields are nested per hook (userPromptSubmit.prompt, taskComplete.taskMetadata.result).",
+  "agent": "cline",
+  "eventField": [
+    "hookName"
+  ],
+  "events": {
+    "turn": [
+      "UserPromptSubmit"
+    ],
+    "reply": [
+      "TaskComplete"
+    ],
+    "detach": [
+      "TaskCancel"
+    ]
+  },
+  "fields": {
+    "prompt": [
+      "userPromptSubmit.prompt"
+    ],
+    "reply": [
+      "taskComplete.taskMetadata.result"
+    ],
+    "session": [
+      "taskId",
+      "taskComplete.taskMetadata.taskId"
+    ],
+    "turn": []
+  },
+  "stdout": {
+    "*": "{\"cancel\":false,\"contextModification\":\"\",\"errorMessage\":\"\"}"
+  },
+  "install": {
+    "requires": {
+      "name": "Cline",
+      "binaries": [
+        "~/.vscode/extensions/saoudrizwan.claude-dev-*",
+        "PATH:cline.cmd",
+        "PATH:cline"
+      ],
+      "marker": null,
+      "needs": "hooks"
+    },
+    "files": {
+      "~/Documents/Cline/Hooks/UserPromptSubmit.ps1": "# Local Voice read-aloud hook (adapters/hooks/adapter.cjs). Installed and removed by: node scripts/agent-hooks.cjs install|uninstall cline\r\n# node reads the payload from this script's stdin directly.\r\n{{command:UserPromptSubmit}}\r\nexit 0\r\n",
+      "~/Documents/Cline/Hooks/TaskComplete.ps1": "# Local Voice read-aloud hook (adapters/hooks/adapter.cjs). Installed and removed by: node scripts/agent-hooks.cjs install|uninstall cline\r\n# node reads the payload from this script's stdin directly.\r\n{{command:TaskComplete}}\r\nexit 0\r\n",
+      "~/Documents/Cline/Hooks/TaskCancel.ps1": "# Local Voice read-aloud hook (adapters/hooks/adapter.cjs). Installed and removed by: node scripts/agent-hooks.cjs install|uninstall cline\r\n# node reads the payload from this script's stdin directly.\r\n{{command:TaskCancel}}\r\nexit 0\r\n"
+    },
+    "events": {
+      "UserPromptSubmit": {},
+      "TaskComplete": {},
+      "TaskCancel": {}
+    },
+    "after": "Cline hooks are on by default (setting hooksEnabled)."
+  }
+}

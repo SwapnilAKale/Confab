@@ -1,0 +1,77 @@
+{
+ "source": "Claude Code hooks reference (UserPromptSubmit, Stop, SessionEnd input fields); same shapes as the live payloads the Claude adapter tests use.",
+ "cases": [
+  {
+   "name": "prompt submitted",
+   "payload": {
+    "session_id": "c1",
+    "transcript_path": "C:\\Users\\u\\.claude\\projects\\p\\c1.jsonl",
+    "cwd": "C:\\repo",
+    "permission_mode": "default",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "How do I train this week?"
+   },
+   "expect": [
+    {
+     "event": "turn",
+     "text": "How do I train this week?"
+    }
+   ],
+   "session": "c1"
+  },
+  {
+   "name": "final reply",
+   "payload": {
+    "session_id": "c1",
+    "transcript_path": "x",
+    "cwd": "C:\\repo",
+    "permission_mode": "default",
+    "hook_event_name": "Stop",
+    "stop_hook_active": false,
+    "last_assistant_message": "Do three sets."
+   },
+   "expect": [
+    {
+     "event": "reply",
+     "text": "Do three sets.",
+     "id": "ID"
+    }
+   ],
+   "session": "c1"
+  },
+  {
+   "name": "an event outside the mapping is ignored",
+   "payload": {
+    "session_id": "c1",
+    "hook_event_name": "PermissionRequest",
+    "tool_name": "Bash"
+   },
+   "expect": []
+  },
+  {
+   "name": "session closed",
+   "payload": {
+    "session_id": "c1",
+    "hook_event_name": "SessionEnd",
+    "reason": "exit"
+   },
+   "expect": [
+    {
+     "event": "detach"
+    }
+   ],
+   "session": "c1"
+  },
+  {
+   "name": "a Claude Code hook run by Cursor (cursor_version present) steps aside for Cursor's own hook",
+   "payload": {
+    "session_id": "c1",
+    "hook_event_name": "UserPromptSubmit",
+    "prompt": "x",
+    "cursor_version": "3.22.12",
+    "conversation_id": "conv-1"
+   },
+   "expect": []
+  }
+ ]
+}

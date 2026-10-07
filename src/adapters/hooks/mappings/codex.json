@@ -1,0 +1,35 @@
+{
+  "about": "OpenAI Codex hooks (CLI; app and IDE extension share the same core). Follows the default conventions; turn_id is shared by steered messages and their Stop.",
+  "agent": "codex",
+  "install": {
+    "requires": {
+      "name": "Codex",
+      "binaries": [
+        "%LOCALAPPDATA%/OpenAI/Codex/bin/*/codex.exe",
+        "~/.vscode/extensions/openai.chatgpt-*/bin/windows-x86_64/codex.exe",
+        "%APPDATA%/npm/node_modules/@openai/codex/vendor/*/codex/codex.exe",
+        "PATH:codex.exe",
+        "PATH:codex.cmd"
+      ],
+      "marker": "last_assistant_message",
+      "needs": "hooks whose Stop event carries last_assistant_message"
+    },
+    "file": "~/.codex/hooks.json",
+    "format": "nested",
+    "events": {
+      "UserPromptSubmit": {
+        "timeout": 5,
+        "async": true
+      },
+      "Stop": {
+        "timeout": 5,
+        "async": true
+      },
+      "SessionEnd": {
+        "timeout": 3
+      }
+    },
+    "after": "Codex runs a new or changed hook only after you trust it: Settings > Hooks > Trust all (desktop app or VS Code extension), or /hooks in the CLI.",
+    "trust": "~/.codex/config.toml"
+  }
+}

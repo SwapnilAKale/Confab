@@ -1,0 +1,24 @@
+{
+  "name": "local-voice",
+  "version": "0.8.0",
+  "private": true,
+  "description": "Local, offline dictation and talk-back read-aloud for Windows, with hooks for coding agents.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "os": [
+    "win32"
+  ],
+  "scripts": {
+    "start": "node src/pc/resident.cjs .",
+    "test": "node scripts/run-tests.cjs",
+    "hooks": "node scripts/agent-hooks.cjs",
+    "install-resident": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-resident.ps1",
+    "uninstall-resident": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-resident.ps1 -Uninstall"
+  },
+  "dependencies": {
+    "koffi": "3.2.1",
+    "sherpa-onnx-node": "1.13.7"
+  }
+}
