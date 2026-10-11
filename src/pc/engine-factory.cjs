@@ -8,5 +8,5 @@ const fs=require('node:fs'),path=require('node:path');
 const {NodeNormalizer}=require('./spoken-normalizer.cjs');
 function profileSpeech(profile){if(!profile)return {};try{const value=JSON.parse(fs.readFileSync(path.join(profile,'settings.json'),'utf8')).speech;return value&&typeof value==='object'&&!Array.isArray(value)?value:{};}catch{return {};}}
 function makeEngine(root,{profile}={}){const speech={ttsThreads:6,...profileSpeech(profile)};if(speech.modelRoot)speech.modelRoot=path.resolve(root,speech.modelRoot);if(speech.ttsModule)speech.synthesizer=require(path.resolve(root,speech.ttsModule)).createSynthesizer(speech.ttsOptions||{});
- return new(require('../service/native-engine.cjs').NativeSpeechEngine)({...speech,normalizer:new NodeNormalizer(),optionalNormalizer:true});}
+ return new(require('../service/native-engine.cjs').NativeSpeechEngine)({...speech,vad:profile?require('./profile.cjs').settings(profile).vad:undefined,normalizer:new NodeNormalizer(),optionalNormalizer:true});}
 module.exports={makeEngine};

@@ -65,7 +65,12 @@ class WindowsTextInput extends EventEmitter {
     if(this.api.keysDown())return 'typing_active';
     return null;
   }
+  // A refused box, in words a log can keep: the check that failed and the control type (never any text).
+  static refusal(snapshot){const o=snapshot?.observed;return o?[o.detail,o.type].filter(Boolean).join(': ')||null:null;}
   async arm(){
+    const result=await this.armCheck();this.lastArm={status:result.status,reason:result.reason||null,detail:WindowsTextInput.refusal(result),at:Date.now()};return result;
+  }
+  async armCheck(){
     this.target=null;
     if(this.closed||!this.api.unlocked())return {status:'rejected',reason:'desktop_unavailable'};
     const window=this.api.foreground(),snapshot=await this.accessibility.snapshot();
@@ -79,16 +84,20 @@ class WindowsTextInput extends EventEmitter {
     const snapshot=await this.accessibility.snapshot({runtimeId:target.runtimeId,includeText:true});
     if(this.target!==target)return {status:'rejected',reason:'field_changed'};
     if(snapshot.status!=='editable')return snapshot;
-    if(!this.sameBox(target,snapshot))return {status:'rejected',reason:'field_changed'};
+    const changed=this.boxDifference(target,snapshot);if(changed)return {status:'rejected',reason:'field_changed',detail:changed};
     return snapshot;
   }
   // Same box: same top-level window and UI Automation element, and (resident mode) the same
   // containing document by runtime id and title, so another browser tab or app session that
   // reuses an input element is never taken for the box where dictation started.
-  sameBox(target,snapshot){
-    if(snapshot.runtimeId!==target.runtimeId||snapshot.window!==target.window)return false;
-    if(target.document&&((snapshot.documentId??null)!==target.document.id||(snapshot.documentName??null)!==target.document.name))return false;
-    return true;
+  sameBox(target,snapshot){return !this.boxDifference(target,snapshot);}
+  // Which part of the identity differs: 'window', 'element', 'document' or 'document_title'; null when it is the same box.
+  boxDifference(target,snapshot){
+    if(snapshot.window!==target.window)return 'window';
+    if(snapshot.runtimeId!==target.runtimeId)return 'element';
+    if(target.document&&(snapshot.documentId??null)!==target.document.id)return 'document';
+    if(target.document&&(snapshot.documentName??null)!==target.document.name)return 'document_title';
+    return null;
   }
   // Resident mode: while recording, report whether focus is in the target box ('focus' events on change).
   watchFocus(){
@@ -106,13 +115,13 @@ class WindowsTextInput extends EventEmitter {
   async insert(text,autoSend=false){
     if(this.busy)return {status:'rejected',reason:'insertion_busy'};
     // Immediate mode: use the box checked at the start, or check the box focused now.
-    if(this.immediate&&!this.target){await this.armed;if(!this.target){const result=await this.arm();if(result.status!=='armed')return {status:'rejected',reason:result.reason||'not_editable'};}}
+    if(this.immediate&&!this.target){await this.armed;if(!this.target){const result=await this.arm();if(result.status!=='armed'){const detail=WindowsTextInput.refusal(result);return {status:'rejected',reason:result.reason||'not_editable',...(detail?{detail}:{})};}}}
     this.busy=true;let dispatched=false,savedClipboard,stage;
     try{
       if(typeof text!=='string'||!text.trim()||text.length>20000)return {status:'rejected',reason:'invalid_text'};
       if(/[\x00-\x1f\x7f-\x9f]/u.test(text))return {status:'rejected',reason:'control_characters'};
       let reason=this.guard(true);if(reason)return {status:'rejected',reason};
-      stage='inspect_target';const before=await this.field();if(before.status!=='editable')return before;
+      stage='inspect_target';const before=await this.field();if(before.status!=='editable'){const detail=before.detail||WindowsTextInput.refusal(before);return {status:before.status,reason:before.reason,...(detail?{detail}:{})};}
       if(typeof before.value!=='string')return {status:'rejected',reason:'text_unverified'};
       reason=this.guard(true);if(reason)return {status:'rejected',reason};
       // Detect editing in this field, not unrelated mouse movement elsewhere.

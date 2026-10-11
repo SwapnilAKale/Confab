@@ -13,7 +13,7 @@ For anyone connecting an agent to Local Voice, adding support for a new agent, o
 
 ```text
  hotkey ─▶ resident service (tray app, src/pc/resident.cjs)
-            ├─ microphone ─▶ Moonshine (segments) ─▶ Parakeet (text) ─▶ paste into the focused box
+            ├─ microphone ─▶ Silero VAD (segments) ─▶ Parakeet (text) ─▶ paste into the focused box
             ├─ talk-back gate: remembers the talk-back draft, matches it against reported turns
             └─ reply ─▶ reply-text rules ─▶ Node normaliser ─▶ Kokoro ─▶ speakers
                  ▲
@@ -59,7 +59,7 @@ Send only the public final answer as the reply: never chain of thought, scratchp
 
 ### Clients
 
-Two single-file clients do the discovery, headers and timeouts for you. Copy one into your project.
+Two single-file clients do the discovery, headers and timeouts for you. Copy one into your project. An installed Local Voice has them in `%LOCALAPPDATA%\LocalVoice\app\src\pc\` (`local_voice.py` and `client.cjs`). Your agent needs no connecting in the tray: the clients find the running service by themselves.
 
 **Python** ([`src/pc/local_voice.py`](../src/pc/local_voice.py), standard library only, Python 3.8+):
 
@@ -363,9 +363,12 @@ npm install
 npm test
 ```
 
-- `npm test` runs every `*.test.cjs` in `test/` and `src/adapters/claude-code/test/`. Some tests load the real speech models from `assets/models/`, so download them first (see the README). One test runs `src/pc/local_voice.py`, so Python 3.8+ should be on PATH.
+- `npm test` runs every `*.test.cjs` in `test/` and `src/adapters/claude-code/test/`. Some tests load the real speech models from `assets/models/`, so download them first: `node scripts/models.cjs fetch` (the same downloader setup uses; `check --full` re-hashes every file). One test runs `src/pc/local_voice.py`, so Python 3.8+ should be on PATH.
+- Setup and uninstall are `scripts/setup.ps1` and `scripts/uninstall.ps1`, started by `setup.cmd` and `uninstall.cmd`. The installed layout is `%LOCALAPPDATA%\LocalVoice\app` (a copy of this folder with `node_modules` and the models), `runtime\node` (Node.js pinned in [`assets/runtime.json`](../assets/runtime.json)) and `resident` (the profile). The tray's windows are `src/ui/dialogs.ps1`; they call `scripts/agents.cjs` and `scripts/diagnose.cjs`, which you can also run directly.
 - `npm start` runs the service in the foreground from this folder (quit any installed copy first; only one runs per user).
 - `node scripts/compare-normalizer.cjs --diff` compares the normaliser with the NeMo reference cases.
 - Speech settings are built in. An optional `"speech"` object in `settings.json` overrides them: `ttsThreads` (default 6) and `modelRoot` (relative to this folder; default `assets/models`).
-- Live models and their exact files are recorded in [`assets/live-models.json`](../assets/live-models.json). Update it when a model changes.
+- Live models and their exact files are recorded in [`assets/live-models.json`](../assets/live-models.json). Update it when a model changes. When a piece is dropped, list its folder under `retired`: setup and uninstall delete retired folders from existing installations.
+- **Speech detector.** `src/silero-segmenter.cjs` runs Silero VAD through sherpa-onnx and only marks where speech is; `src/context-turns.cjs` decides turns (a turn ends after 2.2 s of silence, or at 24 s with 3 s of context overlap). Its three settings (`threshold`, `preSpeechSeconds`, `minSilenceSeconds`) come from the `vad` object in `settings.json` through `src/vad-settings.cjs`; the README lists them.
+- **Tuning with your own voice.** `node scripts/record-test-voice.cjs` records 12 test dictations (short phrases, pauses of 1–3 s, fast speech, a soft first word, fillers) with the product's own microphone capture into `test-output/my-recordings`, one `.wav` and one `.txt` reference each. Pause the installed service's hotkeys first. Replay them through the detector and Parakeet to compare settings before changing a default.
 - The service has no network access in its speech workers (`src/no-network.cjs`), binds only 127.0.0.1, and requires the bearer token on every route.

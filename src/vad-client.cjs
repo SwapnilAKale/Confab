@@ -1,7 +1,6 @@
 const {fork}=require('node:child_process'),path=require('node:path');
-// Moonshine's Silero model is process-global and its recurrent state survives
-// freeing a stream/transcriber. A fresh process gives each call a clean detector.
-// The transcription decoder and TTS stay warm in their existing workers.
+// One process per recording: each starts with a clean speech detector (src/silero-segmenter.cjs), and a fault
+// in it cannot reach the decoder. The transcription decoder and TTS stay warm in their existing workers.
 class VadClient{
  constructor(modelRoot,{events,consumed,error,turnSettle=require('./turn-settings.cjs').DEFAULT_SETTLE,contextOverlap=false}){Object.assign(this,{modelRoot,events,consumed,error,turnSettle,contextOverlap});this.generation=0;this.child=null;}
  reset(){this.close();const generation=this.generation;

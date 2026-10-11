@@ -13,6 +13,7 @@ let failed=false;
 function claude(harness,plugin){
  // Claude Code reads hooks from the Local Voice plugin, registered through its local marketplace.
  const id=plugin.name+'@'+plugin.marketplace,root=path.resolve(__dirname,'..');
+ if(action==='install'&&!dryRun)require('../src/setup/agents.cjs').stampClaudeHooks(root);
  const steps=action==='install'?[['plugin','marketplace','add',path.join(root,plugin.path)],['plugin','install',id]]:action==='uninstall'?[['plugin','uninstall',id],['plugin','marketplace','remove',plugin.marketplace]]:[['plugin','list']];
  for(const args of steps){
   console.log('claude '+args.join(' '));

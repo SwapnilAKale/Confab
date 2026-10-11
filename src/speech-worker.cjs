@@ -5,7 +5,7 @@ const send=event=>{if(process.connected)process.send(event,error=>{if(error)proc
 const began=performance.now();
 if(mode==='vad'){
  const context=process.env.VOICE_TURN_CONTEXT==='0'?null:new (require('./context-turns.cjs').ContextTurns)({overlapSeconds:require('./turn-settings.cjs').resolveOverlap(),previews:process.env.VOICE_LIVE_PREVIEWS!=='0',settle:require('./turn-settings.cjs').resolveSettle(process.env.VOICE_TURN_SETTLE)});
- const detector=require('./moonshine.cjs').createRecognizer(modelRoot,{segmentsOnly:true,previews:process.env.VOICE_LIVE_PREVIEWS!=='0'});send({type:'ready'});
+ const detector=require('./silero-segmenter.cjs').createSegmenter(modelRoot,require('./vad-settings.cjs').fromEnv());send({type:'ready'});
  process.on('message',event=>{try{
   if(event.type==='audio'){const samples=new Float32Array(event.samples);if(!samples.every(Number.isFinite))throw Error('Invalid audio samples');const events=detector.push(samples);send({type:'vad-events',events:context?context.push(samples,events):events,consumed:true,sampleCount:samples.length});}
   if(event.type==='flush'){const events=detector.flush();send({type:'vad-events',events:context?context.push(new Float32Array(),events,{flush:true}):events,flushed:true});}

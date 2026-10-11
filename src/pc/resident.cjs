@@ -6,7 +6,15 @@ function secureEqual(a,b){if(typeof a!=='string'||typeof b!=='string')return fal
 const {PcController}=require('./controller.cjs'),{LazySpeechEngine}=require('./lazy-engine.cjs'),{TalkbackGate}=require('./talkback.cjs');
 const VERSION='0.8.0';
 const MODE_ACTIONS={'mode:talkback':'talkback','mode:off':'off'};
-async function run(root,{profile=profileApi.profileDir(),createTray,createInput,createAudio,engineFactory,idleMs,clock,holdMs=2000}={}){
+// The tray's windows (Connect agents, Diagnose, Uninstall): src/ui/dialogs.ps1 in Windows PowerShell, with a hidden
+// console, running the app's scripts with this process's Node.js. Not detached: Windows PowerShell started without
+// any console never runs the script. The uninstaller it starts is its own process and outlives this one.
+const DIALOGS=['agents','diagnose','uninstall'];
+function openDialog(root,mode){
+ const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+ require('node:child_process').spawn(ps,['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(root,'src','ui','dialogs.ps1'),'-Mode',mode,'-Node',process.execPath,'-Root',root],{stdio:'ignore',windowsHide:true,cwd:require('node:os').tmpdir()}).unref();
+}
+async function run(root,{profile=profileApi.profileDir(),createTray,createInput,createAudio,engineFactory,idleMs,clock,holdMs=2000,dialog=openDialog}={}){
  root=fs.realpathSync(root);profile=path.resolve(profile);const release=require('./single-instance.cjs').acquire(profile);if(!release)return null;
  let token,settings;try{({token}=profileApi.initialize(profile));settings=profileApi.settings(profile);}catch(error){release();throw error;}if(idleMs!==undefined)settings.modelsIdleMs=idleMs;
  const descriptor=path.join(profile,'endpoint.json'),draftDir=path.join(profile,'drafts');let controller,server,timer,closing=false,engine,tray,input,audio;const seen=new Map();
@@ -22,6 +30,7 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
  function setMode(mode){gate.setMode(mode);settings.readMode=mode;controller.setReadAloud(mode!=='off');}
  async function control(action){
   if(action==='quit'){void close();return;}
+  if(DIALOGS.includes(action)){dialog(root,action);return;}
   if(MODE_ACTIONS[action])setMode(MODE_ACTIONS[action]);
   else if(action==='readAloud')setMode(gate.mode==='off'?'talkback':'off');
   else if(action==='badge'){settings.badge=!settings.badge;tray.setBadgeEnabled?.(settings.badge);}
@@ -36,11 +45,12 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
   controller=new PcController({engine,audio,input,notify:tray,lazy:true,spoken:{sentences:settings.spokenSentences,chars:settings.spokenChars,dateOrder:settings.dateOrder},onTalkback:text=>gate.dictated(text),onDisarm:()=>gate.disarm(),saveDraft:text=>{fs.mkdirSync(draftDir,{recursive:true});const name=require('node:crypto').createHash('sha256').update(text).digest('hex');fs.writeFileSync(path.join(draftDir,name+'.json'),JSON.stringify({text,at:Date.now()}),{mode:0o600});},clearDraft:text=>{try{fs.unlinkSync(path.join(draftDir,require('node:crypto').createHash('sha256').update(text).digest('hex')+'.json'));}catch{}}});
   await controller.ready();controller.setReadAloud(gate.mode!=='off');if(settings.paused)await controller.setPaused(true);
   let controls=Promise.resolve();tray.on('action',action=>{controls=controls.then(()=>control(action)).catch(()=>controller.failure('Tray action failed. Check Local Voice status.'));});
-  // Bounded request log and counters: status, reason, decision, agent, session/turn ids and time.
+  // Bounded request log and counters: status, reason, decision, agent, session/turn ids and time; for a turn that
+  // missed a waiting talk-back, its similarity and the two lengths (match).
   // Never prompt or reply text, reply ids, or tokens.
   const requestLog=path.join(profile,'requests.jsonl'),recent=[],counters={total:0,accepted:0,rejected:0,byReason:{}};let lastRejected=null;
   function record(entry){entry={at:new Date().toISOString(),...entry};counters.total++;if(entry.accepted)counters.accepted++;else{counters.rejected++;counters.byReason[entry.reason]=(counters.byReason[entry.reason]||0)+1;lastRejected=entry;}recent.push(entry);while(recent.length>100)recent.shift();try{try{if(fs.statSync(requestLog).size>262144)fs.renameSync(requestLog,path.join(profile,'requests.1.jsonl'));}catch{}fs.appendFileSync(requestLog,JSON.stringify(entry)+'\n',{mode:0o600});}catch{}}
-  const respond=(res,code,value,meta={})=>{record({route:meta.route||null,event:meta.event||null,agent:meta.agent||null,...(meta.session!==undefined?{session:meta.session}:{}),...(meta.turn?{turn:meta.turn}:{}),status:code,accepted:value.accepted===true,reason:value.reason,...(value.detail?{detail:value.detail}:{}),...(meta.decision?{decision:meta.decision}:{})});res.writeHead(code,{'content-type':'application/json','cache-control':'no-store'}).end(JSON.stringify(value));};
+  const respond=(res,code,value,meta={})=>{record({route:meta.route||null,event:meta.event||null,agent:meta.agent||null,...(meta.session!==undefined?{session:meta.session}:{}),...(meta.turn?{turn:meta.turn}:{}),status:code,accepted:value.accepted===true,reason:value.reason,...(value.detail?{detail:value.detail}:{}),...(meta.decision?{decision:meta.decision}:{}),...(meta.match?{match:meta.match}:{})});res.writeHead(code,{'content-type':'application/json','cache-control':'no-store'}).end(JSON.stringify(value));};
   // Held replies: released by a matching turn for the same session (and turn id, when one was sent) within
   // HOLD_MS, else logged as not_talkback. The text stays in memory only.
   const held=new Map(),HOLD_MS=holdMs;
@@ -117,7 +127,7 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
     if(data.event==='reply'){if(typeof data.text!=='string'||data.text.length>60000)throw invalid('invalid_text');if(data.id===undefined||data.id===null||data.id==='')throw invalid('missing_id');optionalId(data.id,'invalid_id');}
     if(settings.paused){respond(res,200,{accepted:false,reason:'paused'},meta);return;}
     const key=data.agent+':'+data.sessionId;
-    if(data.event==='turn'||data.event==='prompt'){const decision=gate.turn(key,turnId,data.event==='turn'?data.text:undefined);meta.decision=decision;respond(res,200,{accepted:true,reason:decision},meta);if(decision==='match')releaseHeld(key,turnId);return;}
+    if(data.event==='turn'||data.event==='prompt'){const decision=gate.turn(key,turnId,data.event==='turn'?data.text:undefined);meta.decision=decision;if(gate.lastMismatch)meta.match=gate.lastMismatch;respond(res,200,{accepted:true,reason:decision},meta);if(decision==='match')releaseHeld(key,turnId);return;}
     if(data.event==='detach'){gate.detach(key);respond(res,200,{accepted:true,reason:'recorded'},meta);return;}
     const answer=(code,value,m)=>respond(res,code,value,m);
     // Cursor reports every assistant message of a turn; only the last one before 'reply-end' is the answer.

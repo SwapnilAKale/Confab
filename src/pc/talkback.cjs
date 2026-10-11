@@ -15,8 +15,11 @@ const DEFAULT_CAP_MS = 2 * 60 * 60 * 1000;
 const MATCH_THRESHOLD = 0.75;
 const CONTAINED_SHARE = 0.6;
 
+// Context an agent adds to the prompt it reports is not what the user sent: the Claude desktop app puts a
+// <system-reminder> block before the first message of a new session, and wraps pasted text in <pasted_content>.
 function normalize(text) {
   return String(text)
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, ' ')
     .replace(/<\/?pasted_content[^>]*>/gi, ' ')
     .toLowerCase().normalize('NFKC')
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -61,10 +64,16 @@ class TalkbackGate {
   setMode(mode) { if (!MODES.includes(mode)) throw Error('Unknown read-aloud mode'); this.mode = mode; }
   // Talk-back dictation pasted text. A newer draft replaces an older unmatched one.
   dictated(text) { this.sweep(); const value = normalize(text); this.record = value ? {text: value, at: this.clock()} : null; }
-  // A user turn reached an agent. Returns 'match' or 'no_match'.
+  // A user turn reached an agent. Returns 'match' or 'no_match'. A turn that does not match a waiting draft
+  // leaves lastMismatch: the similarity and the two normalized lengths (numbers only, never text).
   turn(key, turnId, text) {
-    this.sweep();
-    if (!this.record || typeof text !== 'string' || !matches(this.record.text, normalize(text))) return 'no_match';
+    this.sweep(); this.lastMismatch = null;
+    if (!this.record || typeof text !== 'string') return 'no_match';
+    const prompt = normalize(text);
+    if (!matches(this.record.text, prompt)) {
+      this.lastMismatch = {similarity: Math.round(similarity(this.record.text, prompt) * 1000) / 1000, draftChars: this.record.text.length, promptChars: prompt.length, contained: prompt.includes(this.record.text)};
+      return 'no_match';
+    }
     // Single owner: this turn replaces any earlier pending talk-back, which then replies silently.
     this.record = null; this.owner = {key, turnId: turnId ?? null, at: this.clock()};
     return 'match';

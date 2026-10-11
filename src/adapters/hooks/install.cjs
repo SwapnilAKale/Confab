@@ -6,16 +6,28 @@ const {loadMapping}=require('./adapter.cjs');
 const ADAPTER=path.join(__dirname,'adapter.cjs');
 const OURS=/adapters[\\/]+hooks[\\/]+adapter\.cjs/;
 const isOurs=hook=>!!hook&&['command','powershell'].some(key=>typeof hook[key]==='string'&&OURS.test(hook[key]));
-// Node.js must be on PATH, as it already must be for the Claude Code plugin's Stop hook.
+// The Node.js that runs hooks: the runtime setup installed beside the app (%LOCALAPPDATA%\LocalVoice\runtime\node),
+// so the user needs no Node.js of their own; in a development checkout without one, node on PATH.
+function bundledNode(root=path.resolve(__dirname,'..','..','..')){const exe=path.join(root,'..','runtime','node','node.exe');return fs.existsSync(exe)?exe:null;}
 // The command is never quoted. Harnesses start it in incompatible ways: Antigravity splits it on spaces with
 // no shell and keeps quote characters literally; Codex hands it to cmd.exe /C, where an escaped quoted path
 // breaks; others use PowerShell or sh. A space-free forward-slash path works in all of them, so a path with
 // spaces uses its 8.3 short form, and if the volume has none, install stops with nothing changed.
-function command(harness,event,{adapter=ADAPTER,shortPath=windowsShortPath}={}){
- const spec=loadMapping(harness).install;
- let script=adapter;
- if(/\s/.test(script)){script=shortPath(script);if(!script||/\s/.test(script))throw Error('"'+adapter+'" contains a space and has no short (8.3) name, so '+(spec.requires?.name||harness)+' could not run it. Move the Local Voice folder to a path without spaces. Nothing was changed.');}
- return ['node',script.replace(/\\/g,'/'),harness,...(spec.eventArg?[event]:[])].join(' ');
+function spaceFree(file,shortPath,who){
+ if(!/\s/.test(file))return file.replace(/\\/g,'/');
+ const short=shortPath(file);if(!short||/\s/.test(short))throw Error('"'+file+'" contains a space and has no short (8.3) name, so '+who+' could not run it. Move the Local Voice folder to a path without spaces. Nothing was changed.');
+ return short.replace(/\\/g,'/');
+}
+function command(harness,event,{adapter=ADAPTER,node=bundledNode(),shortPath=windowsShortPath}={}){
+ const spec=loadMapping(harness).install,who=spec.requires?.name||harness;
+ return [node?spaceFree(node,shortPath,who):'node',spaceFree(adapter,shortPath,who),harness,...(spec.eventArg?[event]:[])].join(' ');
+}
+// Every hook command of ours in a harness's files (to check that it points at this installation).
+function installedCommands(harness,{home=os.homedir()}={}){
+ const spec=hookSpec(harness),files=spec.files?Object.keys(spec.files).map(n=>path.join(home,n.replace(/^~[\\/]/,''))):[configFile(spec,home)];
+ const found=[];
+ for(const file of files){let text;try{text=fs.readFileSync(file,'utf8');}catch{continue;}for(const m of text.matchAll(/[^"\r\n]*adapters[\\/]+hooks[\\/]+adapter\.cjs[^"\r\n]*/g))if(!/^\s*#/.test(m[0]))found.push(m[0].trim());}
+ return [...new Set(found)];
 }
 function windowsShortPath(file){
  if(process.platform!=='win32')return null;
@@ -184,14 +196,16 @@ function uninstall(harness,{home,dryRun=false,...options}={}){
 // (every version ever installed), empty data folders, and usage counters in ~/.claude.json. These are removed here,
 // together with any entry the CLI left in its registry files. Only keys naming our plugin or marketplace are touched.
 function removeClaudeLeftovers({home=os.homedir(),plugin='local-voice',marketplace='local-voice-local',dryRun=false}={}){
- const done=[],claude=path.join(home,'.claude'),ours=key=>key===marketplace||key.startsWith(plugin+'@')||key.startsWith(plugin+':')||key.startsWith(plugin+'-');// local-voice, local-voice-observer, ...
+ // CLAUDE_CONFIG_DIR moves both the config folder and .claude.json (which then sits inside it).
+ const configDir=process.env.CLAUDE_CONFIG_DIR;
+ const done=[],claude=configDir||path.join(home,'.claude'),ours=key=>key===marketplace||key.startsWith(plugin+'@')||key.startsWith(plugin+':')||key.startsWith(plugin+'-');// local-voice, local-voice-observer, ...
  const removeDir=dir=>{if(fs.existsSync(dir)){if(!dryRun)fs.rmSync(dir,{recursive:true,force:true});done.push(dir);}};
  removeDir(path.join(claude,'plugins','cache',marketplace));
  removeDir(path.join(claude,'plugins','marketplaces',marketplace));
  try{for(const name of fs.readdirSync(path.join(claude,'plugins','data')))if(name===plugin||name.startsWith(plugin+'-'))removeDir(path.join(claude,'plugins','data',name));}catch{}
  // [file, object paths whose keys are checked]
  const edits=[[path.join(claude,'settings.json'),['enabledPlugins','extraKnownMarketplaces']],[path.join(claude,'plugins','installed_plugins.json'),['plugins','']],
-  [path.join(claude,'plugins','known_marketplaces.json'),['']],[path.join(home,'.claude.json'),['pluginUsage','skillUsage']]];
+  [path.join(claude,'plugins','known_marketplaces.json'),['']],[configDir?path.join(configDir,'.claude.json'):path.join(home,'.claude.json'),['pluginUsage','skillUsage']]];
  for(const [file,containers] of edits){
   if(!fs.existsSync(file))continue;let json;try{json=JSON.parse(fs.readFileSync(file,'utf8').replace(/^﻿/,''));}catch{continue;}
   const removed=[];
@@ -209,4 +223,4 @@ function status(harness,{home}={}){
  try{config=read(file).config;}catch(e){return {file,error:e.message};}
  const probe=structuredClone(config);return {file,installed:strip(probe,spec)};
 }
-module.exports={install,uninstall,status,command,isOurs,configFile,checkSupport,candidates,removeClaudeLeftovers};
+module.exports={install,uninstall,status,command,isOurs,configFile,checkSupport,candidates,removeClaudeLeftovers,bundledNode,spaceFree,windowsShortPath,installedCommands,trustKeys,read};

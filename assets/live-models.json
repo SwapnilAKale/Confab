@@ -1,6 +1,6 @@
 {
- "generated": "2026-10-07",
- "note": "Live speech pieces used by the PC service. Folders are git-ignored; this file records where each came from and the exact bytes in use.",
+ "generated": "2026-10-11",
+ "note": "Live speech pieces used by the PC service. Folders are git-ignored; this file records where each came from and the exact bytes in use. Setup (src/setup/models.cjs) downloads each piece from \"download\" and accepts a file only if its size and SHA-256 match the list below. Folders listed under \"retired\" belonged to earlier versions; setup and uninstall delete them.",
  "pieces": [
   {
    "name": "Parakeet TDT 0.6B v2, int8 (sherpa-onnx export)",
@@ -10,6 +10,26 @@
    "source": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2",
    "upstreamModel": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2",
    "license": "CC-BY-4.0",
+   "totalBytes": 661471436,
+   "download": {
+    "archive": {
+     "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2",
+     "size": 482468385,
+     "sha256": "157c157bc51155e03e37d2466522a3a737dd9c72bb25f36eb18912964161e1ad",
+     "folder": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
+    },
+    "extra": {
+     "ATTRIBUTION.md": "repo:assets/notices/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/ATTRIBUTION.md",
+     "LICENSE-CC-BY-4.0.txt": "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+     "MODEL_CARD.md": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/raw/ae9ad07059c7c739ffaf932226a8fe64ae2620b0/README.md"
+    }
+   },
+   "upstreamCheck": [
+    "2026-10-07: the 5 model files (encoder, decoder, joiner, tokens and test data) match the upstream archive byte for byte (archive SHA-256 above)",
+    "ATTRIBUTION.md is written by this project and kept in assets/notices",
+    "LICENSE-CC-BY-4.0.txt matches https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+    "MODEL_CARD.md matches the model card (README.md) of nvidia/parakeet-tdt-0.6b-v2 at revision ae9ad07"
+   ],
    "files": [
     {
      "path": "ATTRIBUTION.md",
@@ -51,84 +71,36 @@
      "size": 9384,
      "sha256": "ec182b70dd42113aff6c5372c75cac58c952443eb22322f57bbd7f53977d497d"
     }
-   ],
-   "totalBytes": 661471436
+   ]
   },
   {
-   "name": "Moonshine medium streaming (English)",
-   "use": "speech segmenting, src/vad-client.cjs (worker mode \"vad\") via src/moonshine.cjs",
-   "path": "assets/models/moonshine-medium-streaming-en",
-   "version": "medium-streaming-en, quantized_26_08_21 (as listed by moonshine-voice 0.1.5 for model_arch 5)",
-   "source": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/",
-   "license": "see https://github.com/moonshine-ai/moonshine",
+   "name": "Silero VAD v6.2.3",
+   "use": "speech segmenting, src/silero-segmenter.cjs (sherpa-onnx VAD) via src/vad-client.cjs",
+   "path": "assets/models/silero-vad",
+   "version": "silero-vad v6.2.3 (tag commit 5cd7945676eb32225748052e2e6a0580e4686a08)",
+   "source": "https://github.com/snakers4/silero-vad/tree/v6.2.3",
+   "license": "MIT (LICENSE in the folder)",
+   "totalBytes": 2328599,
+   "upstreamCheck": [
+    "2026-10-11: both files match release v6.2.3 of snakers4/silero-vad, downloaded from its tag commit (SHA-256 above)"
+   ],
+   "download": {
+    "extra": {
+     "silero_vad.onnx": "https://raw.githubusercontent.com/snakers4/silero-vad/5cd7945676eb32225748052e2e6a0580e4686a08/src/silero_vad/data/silero_vad.onnx",
+     "LICENSE": "https://raw.githubusercontent.com/snakers4/silero-vad/5cd7945676eb32225748052e2e6a0580e4686a08/LICENSE"
+    }
+   },
    "files": [
     {
-     "path": "adapter.ort",
-     "size": 3651296,
-     "sha256": "3f2a287def57cc094367a0eec3c4f5fc36a32ec420e86764b696920991b20281",
-     "crc32c": "Ds3Hsg==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/adapter.ort"
+     "path": "LICENSE",
+     "size": 1075,
+     "sha256": "2e63e9a38b6e8fc0c7bc37ce174caca1862870856c6daf5697cfb785e925520b"
     },
     {
-     "path": "cross_kv.ort",
-     "size": 11643776,
-     "sha256": "642f6e21cd305be79342207c6f9e6b681d469d55bc48c72b27b84846fb71fd1e",
-     "crc32c": "liqlOg==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/cross_kv.ort"
-    },
-    {
-     "path": "decoder_kv.ort",
-     "size": 146972408,
-     "sha256": "193bb366492b74fc4ad338c6778e8d8eb916aaa11b5aa264f9057f4db7759486",
-     "crc32c": "GPnzeQ==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/decoder_kv.ort"
-    },
-    {
-     "path": "encoder.ort",
-     "size": 94705376,
-     "sha256": "12915e76ebac7dd287c5ea63965d06103a53ba1ce242a4a34f318f3958c60c37",
-     "crc32c": "yWvDwA==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/encoder.ort"
-    },
-    {
-     "path": "frontend.model.ort",
-     "size": 28720,
-     "sha256": "95768855c70c8251eeecc05fedf69999da1b8ab16f605c9f457fd3354b0ad6b5",
-     "crc32c": "k1kKsQ==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/frontend.model.ort"
-    },
-    {
-     "path": "frontend.weights.ort",
-     "size": 11889560,
-     "sha256": "5ac941f490cbe035b335b99a414cc393d62d4c6f9f2423495b286870d271d709",
-     "crc32c": "w5QjIA==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/frontend.weights.ort"
-    },
-    {
-     "path": "streaming_config.json",
-     "size": 513,
-     "sha256": "28e83b7a28e91472692a035e0dae3116422ae43aeb2bef5ed822c44ce89b88af",
-     "crc32c": "+1bE9Q==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/streaming_config.json"
-    },
-    {
-     "path": "tokenizer.bin",
-     "size": 249974,
-     "sha256": "6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d",
-     "crc32c": "B7s10Q==",
-     "url": "https://download.moonshine.ai/model/medium-streaming-en/quantized_26_08_21/tokenizer.bin"
+     "path": "silero_vad.onnx",
+     "size": 2327524,
+     "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3"
     }
-   ],
-   "totalBytes": 269141623,
-   "upstreamCheck": [
-    "match adapter.ort",
-    "match cross_kv.ort",
-    "match decoder_kv.ort",
-    "match encoder.ort",
-    "match frontend.model.ort",
-    "match frontend.weights.ort",
-    "match streaming_config.json",
-    "match tokenizer.bin"
    ]
   },
   {
@@ -138,6 +110,14 @@
    "version": "kokoro v1.0 multi-lang, sherpa-onnx export (release tag tts-models)",
    "source": "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-multi-lang-v1_0.tar.bz2",
    "license": "Apache-2.0 (see LICENSE in the folder)",
+   "totalBytes": 400786089,
+   "download": {
+    "base": "https://huggingface.co/csukuangfj/kokoro-multi-lang-v1_0/resolve/7e9b67b79bfdcbd2b4bc144370345fcceac3cb0c/"
+   },
+   "upstreamCheck": [
+    "2026-10-07: all 377 files match revision 7e9b67b (2025-04-20) of csukuangfj/kokoro-multi-lang-v1_0, the sherpa-onnx maintainer's Hugging Face copy, which setup downloads from",
+    "The GitHub release archive at \"source\" was replaced upstream on 2026-09-08 (54 voices, new model metadata): README.md, lexicon-zh.txt, model.onnx and voices.bin now differ from the files in use, so setup does not use it"
+   ],
    "files": [
     {
      "path": "LICENSE",
@@ -2024,219 +2004,17 @@
      "size": 27678720,
      "sha256": "8a77c0d397026208d22211f37670b5b3b11e03f190756b25a1d24041fced82a9"
     }
-   ],
-   "totalBytes": 400786089
+   ]
+  }
+ ],
+ "retired": [
+  {
+   "path": "assets/moonshine-engine",
+   "note": "used by an earlier version for speech segmenting; deleted on setup and uninstall"
   },
   {
-   "name": "moonshine-voice native engine",
-   "use": "Moonshine runtime DLLs loaded by src/moonshine.cjs",
-   "path": "assets/moonshine-engine",
-   "version": "moonshine-voice 0.1.5, wheel tag py3-none-win_amd64",
-   "source": "https://pypi.org/project/moonshine-voice/0.1.5/",
-   "license": "MIT",
-   "files": [
-    {
-     "path": "moonshine_voice-0.1.5.dist-info/METADATA",
-     "size": 11888,
-     "sha256": "b212bce3a1d0794fb43e8250c12367651ae268dd112d706e47c378fe383f1c40"
-    },
-    {
-     "path": "moonshine_voice-0.1.5.dist-info/RECORD",
-     "size": 3591,
-     "sha256": "ef07c5abf1d95393dc8b472d49bef8b981a4cc9b4aa5c7b6b9b813eba2a0b731"
-    },
-    {
-     "path": "moonshine_voice-0.1.5.dist-info/WHEEL",
-     "size": 98,
-     "sha256": "671f7c8306ff75029c9092b71c43952a7c710f9d847d4fcf5c31bfbac309da78"
-    },
-    {
-     "path": "moonshine_voice-0.1.5.dist-info/entry_points.txt",
-     "size": 98,
-     "sha256": "ac51c48b070476c97159bc80d4cd0f74df5d0deadbff4606f5972b43938bce51"
-    },
-    {
-     "path": "moonshine_voice-0.1.5.dist-info/licenses/LICENSE",
-     "size": 1092,
-     "sha256": "7b749ee9a1bc694b648b0cfa1f4fbfda49d8af14cbb76dedab6fb9f086edfa7a"
-    },
-    {
-     "path": "moonshine_voice-0.1.5.dist-info/top_level.txt",
-     "size": 16,
-     "sha256": "da86871c6cd8b99af5789e47ea877a7e69ce19a0d22c098ec9b287e2703c1d9f"
-    },
-    {
-     "path": "moonshine_voice/__init__.py",
-     "size": 12471,
-     "sha256": "b311da23422d7f4bedae29e0e6ec886c8b88c397adcfb365b55f2f997c94c6e4"
-    },
-    {
-     "path": "moonshine_voice/agent_flow.py",
-     "size": 105812,
-     "sha256": "ded7d4f96887f802e54a84dba6bf85166eb3977961af61bc33351f72dab026de"
-    },
-    {
-     "path": "moonshine_voice/alphanumeric_listener.py",
-     "size": 41794,
-     "sha256": "e26bb2d14bfe5619a393ab0c1dde86d6b5057faa164441dcdc202c1db4b14993"
-    },
-    {
-     "path": "moonshine_voice/assets/beckett.wav",
-     "size": 318978,
-     "sha256": "e5a26b3d29e5b0bc8dbd72c11d16a3808a4ec0ac45b21f12a27d2a2fe5c5ae61"
-    },
-    {
-     "path": "moonshine_voice/assets/cached_embeddings.tsv",
-     "size": 2228235,
-     "sha256": "e2085b1d4d5449c82358763aaa00a760efa21f0e9704b937816ee738dd60eeb9"
-    },
-    {
-     "path": "moonshine_voice/assets/clone-test.wav",
-     "size": 131560,
-     "sha256": "ff0313f1b99468ac425304ba7f8deada003efbada014863a475cb8bda87a6191"
-    },
-    {
-     "path": "moonshine_voice/assets/endgame_nagg_nell.wav",
-     "size": 1357352,
-     "sha256": "78f44dc6d3da32ecab0c37f391700f0569f4612b8e0be2ecbaf33e1d3d566474"
-    },
-    {
-     "path": "moonshine_voice/assets/error.wav",
-     "size": 96150,
-     "sha256": "4eea6f6ca9dd0aa80b42aeddb8fcb729ff1ac7d47a972f204ca26569beeb5c3f"
-    },
-    {
-     "path": "moonshine_voice/assets/success.wav",
-     "size": 96698,
-     "sha256": "63daf79c8c55c8601775d456aac9f949ab1930155454ab14286818e9d956db4b"
-    },
-    {
-     "path": "moonshine_voice/assets/tiny-en/tokenizer.bin",
-     "size": 249974,
-     "sha256": "6884b35fd6377d4c4d32336a0bc152f36b64d1e45b6503683cdc238250a8472d"
-    },
-    {
-     "path": "moonshine_voice/assets/two_cities.wav",
-     "size": 4260326,
-     "sha256": "f3348494d77cb74a02862f5e685ed09faf3e75832c5cc5c80703282c2cd8b52e"
-    },
-    {
-     "path": "moonshine_voice/cached_embeddings.py",
-     "size": 10717,
-     "sha256": "f440f5b35268abd3e4e8cca21e2c02cd85c5d42e154422ed20c8329336118298"
-    },
-    {
-     "path": "moonshine_voice/cli.py",
-     "size": 4872,
-     "sha256": "276b0be0e99960674cbf0666db8593bc05bc395a70c7cd4c591b4b2019fae9c4"
-    },
-    {
-     "path": "moonshine_voice/download.py",
-     "size": 52671,
-     "sha256": "4298dc461ddde320819c79238de8ad2af5f0fe9af5a3d3964905ac231c6b5ac1"
-    },
-    {
-     "path": "moonshine_voice/download_file.py",
-     "size": 10713,
-     "sha256": "1d52012215e8fdcea70a35a5a4bef6c393ca8fddef95fb5733710b8315ac6df4"
-    },
-    {
-     "path": "moonshine_voice/embedding_model.py",
-     "size": 7367,
-     "sha256": "4b58a2a0006e16633b4e24fdbe7afa4e05536c3d500f832df3a51d58d246dc49"
-    },
-    {
-     "path": "moonshine_voice/errors.py",
-     "size": 4040,
-     "sha256": "f26468f707a7094e7c6252dbeaaf6a5f6fa6daae3e8bae04dcc0e54bb364d1d9"
-    },
-    {
-     "path": "moonshine_voice/g2p.py",
-     "size": 5399,
-     "sha256": "65369166f44b1b42b94f80aca5c3d3107838aa5918473bd9cc2e0e7476ed14c8"
-    },
-    {
-     "path": "moonshine_voice/lora/__init__.py",
-     "size": 3291,
-     "sha256": "feb96684d8d2ccdd07327af5ef942e50d9726395c90c5675ad5d31c667802be8"
-    },
-    {
-     "path": "moonshine_voice/lora/__main__.py",
-     "size": 7171,
-     "sha256": "68196e71313452f3de781365f62c039668d894920e70928077944646efd13543"
-    },
-    {
-     "path": "moonshine_voice/lora/_deps.py",
-     "size": 1680,
-     "sha256": "6bd823e48e022b782543555d73a96e5bea8835c254ad9d95469b1b747f502a8b"
-    },
-    {
-     "path": "moonshine_voice/lora/adapter.py",
-     "size": 5890,
-     "sha256": "01d1ead32b019cd0becedcb9827ae7bd4cd61640a2a06e610f4c1db1d4a2448f"
-    },
-    {
-     "path": "moonshine_voice/lora/data.py",
-     "size": 16147,
-     "sha256": "c0d14bc555ce8fb5344f9e9de4d58702904c192237fb6b53454f9f472fde6f47"
-    },
-    {
-     "path": "moonshine_voice/lora/export.py",
-     "size": 23881,
-     "sha256": "9cfbe9afe7bae3b829673e9f036cb6c5e84a4dcd1c8e27f436c359bd15d5bc98"
-    },
-    {
-     "path": "moonshine_voice/lora/manifest.py",
-     "size": 5557,
-     "sha256": "7123a8a5153c24799f8f9c7c27c3ffe176e35c7d894f52dd65ad60fecc054f3f"
-    },
-    {
-     "path": "moonshine_voice/lora/train.py",
-     "size": 25630,
-     "sha256": "d438df93d23b3e7a247f1bcd17969da9af9e605762d78137bcbaae5b382d46bf"
-    },
-    {
-     "path": "moonshine_voice/mic_transcriber.py",
-     "size": 25766,
-     "sha256": "8b3c95127bc0e1f50ec31e62221939e873d47ad71fc72ded81a4eadf412ddbe9"
-    },
-    {
-     "path": "moonshine_voice/moonshine.dll",
-     "size": 9595392,
-     "sha256": "5785b084680b7cb335e95b2e99e9c243e4b15833a30b1add5a4598694f8b48aa"
-    },
-    {
-     "path": "moonshine_voice/moonshine_api.py",
-     "size": 47977,
-     "sha256": "3cef824146536e6dc6f020d9e88bc3e471f217bf66d75a6cdf9533a243b38111"
-    },
-    {
-     "path": "moonshine_voice/onnxruntime.dll",
-     "size": 14186016,
-     "sha256": "dec964ab1ee36cc9b0ae247d13b376627992fc57dec0454354017ab8fd84f1ea"
-    },
-    {
-     "path": "moonshine_voice/transcriber.py",
-     "size": 40063,
-     "sha256": "59f60876fee19d6cc8e659d62955135d44b3b31db46f3d95234cf5bac86c4083"
-    },
-    {
-     "path": "moonshine_voice/tts.py",
-     "size": 78111,
-     "sha256": "fa0db23a14ac99b2eb04199943eaca3ed55b794b97ab204d0d3db84fe4b3dadd"
-    },
-    {
-     "path": "moonshine_voice/utils.py",
-     "size": 7626,
-     "sha256": "90ed65ab0b06c3787e770151985ed5a0821ed96eae0e69972259641192e08fa2"
-    },
-    {
-     "path": "moonshine_voice/voice_clone.py",
-     "size": 11076,
-     "sha256": "648a25efbdc517becf10d898b81370932bb61afa482466b984131e8aba9bc621"
-    }
-   ],
-   "totalBytes": 33093186
+   "path": "assets/models/moonshine-medium-streaming-en",
+   "note": "used by an earlier version for speech segmenting; deleted on setup and uninstall"
   }
  ]
 }

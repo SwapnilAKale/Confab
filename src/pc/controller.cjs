@@ -88,6 +88,9 @@ class PcController {
   if(text&&capture.talkback){try{this.onTalkback(text);}catch{}}
   if(text){this.pendingDraft=text;try{this.saveDraft(text);}catch{}await delay(Math.max(0,800-(Date.now()-this.endedAt)));if(this.closed||this.capture!==capture)return;
    const result=await this.input.insert(text,this.autoSend);this.lastInsertion=result;
+   // Why a dictation was not pasted (codes only): the refusal, the check that failed, and whether the box was
+   // confirmed when recording started. Kept until the next refusal, so a later successful paste does not hide it.
+   if(result.status!=='inserted')this.lastRefusal={at:Date.now(),status:result.status,reason:result.reason||null,detail:result.detail||null,armedAtStart:this.input.lastArm?this.input.lastArm.status==='armed':null,armDetail:this.input.lastArm&&this.input.lastArm.status!=='armed'?[this.input.lastArm.reason,this.input.lastArm.detail].filter(Boolean).join(': '):null};
    if(result.status==='inserted'){this.metrics.insertions++;this.clearDraft(text);this.pendingDraft=null;this.capture=null;this.state='ready';this.flashBadge('pasted',1500);if(result.clipboardRestored===false)this.failure('Text was inserted, but the previous clipboard could not be restored. Check your clipboard.');}
    else await this.fallback(text,result.status==='uncertain'?'Insertion could not be verified. Check the input box before pasting.':['focus_changed','field_changed','not_editable','not_armed'].includes(result.reason)?'Not pasted: focus was not in the box where you started dictating.':'Draft was not inserted.');
   }else{this.capture=null;this.state='ready';this.rejectPress(capture.peak===0?'The microphone returned silent audio. Check that it is unmuted and the correct default device is selected.':'No speech was recognized. Check your microphone and try again.');}
@@ -134,7 +137,7 @@ class PcController {
    if(stream)await stream.end();await playback;mark('finishedMs');if(generation===this.generation){this.metrics.played++;this.lastSpeech={state:'completed'};}
   }).catch(()=>{if(!this.closed){this.lastSpeech={state:'failed',stage:this.lastSpeech?.state};this.failure('Reply read-aloud failed. Check your speakers and speech models.');}}).finally(()=>{this.pendingReplies--;this.refreshBadge();});return true;
  }
- status(){return {badgeState:this.badgeState().name,lastMicStartMs:this.lastMicStartMs,lastReply:this.lastReply,state:this.state,metrics:{...this.metrics},lastInsertion:this.lastInsertion,lastCapture:this.lastCapture,lastSpeech:this.lastSpeech,lastError:this.lastError,notificationAccepted:this.notificationAccepted};}
+ status(){return {badgeState:this.badgeState().name,lastMicStartMs:this.lastMicStartMs,lastReply:this.lastReply,state:this.state,metrics:{...this.metrics},lastInsertion:this.lastInsertion,lastRefusal:this.lastRefusal||null,lastCapture:this.lastCapture,lastSpeech:this.lastSpeech,lastError:this.lastError,notificationAccepted:this.notificationAccepted};}
  async setPaused(paused){this.paused=paused;this.cancelSpeech();if(paused)await this.cancelCapture();if(this.input.setPaused?.(paused)===false){this.paused=true;this.failure('Dictation shortcut is in use. Close the other dictation instance before resuming.');return false;}return true;}
  setReadAloud(enabled){this.readAloud=enabled;if(!enabled)this.cancelSpeech();}
  async close(){if(this.closed)return;this.closed=true;this.state='stopping';clearTimeout(this.flashTimer);this.flash=null;this.cancelSpeech();try{await this.cancelCapture();}finally{try{this.input.close();}finally{try{this.engine.close();}finally{try{await this.audio.close();}finally{await this.notify.close();}}}}}

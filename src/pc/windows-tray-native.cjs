@@ -76,7 +76,7 @@ class NativeTray {
   const menu=fn.popup();if(!menu)throw Error('Could not create the Local Voice menu.');
   try {
    const rows=hotkeyRows(this.state);
-   const entries=[[2,0,'Local Voice: models '+this.state.models+(this.state.paused?' / paused':'')],[0x800,0,null],...rows,...(rows.length?[[0x800,0,null]]:[]),...MODES.map(([id,mode,label])=>[0x200|(this.state.readMode===mode?8:0),id,label]),[0x800,0,null],[this.state.badge===false?0:8,7,'Status badge near pointer'],[this.state.paused?8:0,2,'Pause hotkeys'],[0,3,'Quit Local Voice']];
+   const entries=[[2,0,'Local Voice: models '+this.state.models+(this.state.paused?' / paused':'')],[0x800,0,null],...rows,...(rows.length?[[0x800,0,null]]:[]),...MODES.map(([id,mode,label])=>[0x200|(this.state.readMode===mode?8:0),id,label]),[0x800,0,null],[this.state.badge===false?0:8,7,'Status badge near pointer'],[this.state.paused?8:0,2,'Pause hotkeys'],[0x800,0,null],[0,8,'Connect agents…'],[0,9,'Diagnose…'],[0x800,0,null],[0,10,'Uninstall Local Voice…'],[0,3,'Quit Local Voice']];
    for(const [flags,id,text] of entries)if(!fn.append(menu,flags,id,text))throw Error('Could not populate the Local Voice menu.');
    return menu;
   }catch(error){fn.destroyMenu(menu);throw error;}
@@ -89,7 +89,7 @@ class NativeTray {
    fn.foreground(this.window);
    const chosen=fn.track(menu,0x100|0x2,p.x,p.y,0,this.window,null);
    fn.post(this.window,0,0,0);
-   const action=({2:'pause',3:'quit',7:'badge',...Object.fromEntries(MODES.map(([id,mode])=>[id,'mode:'+mode]))})[chosen];if(action)this.onAction(action);
+   const action=({2:'pause',3:'quit',7:'badge',8:'agents',9:'diagnose',10:'uninstall',...Object.fromEntries(MODES.map(([id,mode])=>[id,'mode:'+mode]))})[chosen];if(action)this.onAction(action);
   }catch(error){this.onError(error.message);}
   finally{if(menu)fn.destroyMenu(menu);this.menuOpen=false;}
  }

@@ -2,9 +2,10 @@
 
 ## Next
 
-- **One setup command.** Downloads the speech models and the Moonshine engine from the sources in `assets/live-models.json`, checks every file's SHA-256, runs `npm install`, and installs login startup.
-- **"Connect agents" in the tray.** Lists the agents found on the PC and installs or removes each one's hook, using the same installer as `scripts/agent-hooks.cjs`.
-- **One uninstall command.** Removes every agent hook, login startup and the Start menu shortcut, and offers to delete the profile folder.
+- **Sign the native files before sharing publicly.** Smart App Control loads an unsigned DLL only while Microsoft's cloud reputation vouches for it, and that verdict can change: on 8 October 2026 it turned against a speech-engine DLL that had loaded the day before, and that component had to be replaced. A file signed with a certificate chaining to the Microsoft Trusted Root Program is allowed even without reputation ([Smart App Control for developers](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/overview)).
+  - **Certificate:** an OV code-signing certificate (about $150–300 a year, key on a hardware token or cloud HSM, RSA). Azure Artifact Signing is open to individuals only in the USA and Canada ([code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)).
+  - **Files to sign** (unsigned today): `koffi.node` (`@koromix/koffi-win32-x64`), `sherpa-onnx.node`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`, `onnxruntime.dll` and `onnxruntime_providers_shared.dll` (all in `sherpa-onnx-win-x64`). Already signed: `node.exe` (OpenJS Foundation).
+  - **Distribution:** signing changes the bytes, so the signed copies are hosted by the project, and `assets/live-models.json` records both the upstream hash and the signed hash of each file.
 - **Live tests for Cursor.** Its hook is installed and reproduced in tests, but talk-back hasn't been confirmed with a real Cursor run.
 
 ## Parked for later

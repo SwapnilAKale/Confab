@@ -23,7 +23,7 @@ Agents with their own backend use the HTTP contract in the [developer guide](DEV
 | Continue CLI (`cn`) | `~/.continue/settings.json`: UserPromptSubmit, Stop, SessionEnd | `install continue` / `uninstall continue` | Yes | Yes | Yes | Sample payloads | Source only, no docs page. The Continue VS Code extension doesn't use these hooks. |
 | Goose | Plugin folder `~/.agents/plugins/local-voice`: UserPromptSubmit, Stop | `install goose` / `uninstall goose` | Yes | Yes | Yes | Sample payloads | Goose runs hooks with `sh -c` even on Windows, so `sh` (Git for Windows) must be on PATH; install checks for it. |
 
-Commands are `node scripts/agent-hooks.cjs <install|uninstall|status> <agent>`. `uninstall all` and `status all` cover every agent. `--dry-run` prints the change without writing it.
+Users connect and disconnect agents from the tray menu → **Connect agents…** (or when setup offers it); uninstall disconnects every agent. Both run the installers described below. From a checkout, the same installers run as `node scripts/agent-hooks.cjs <install|uninstall|status> <agent>`. `uninstall all` and `status all` cover every agent. `--dry-run` prints the change without writing it.
 
 **Not supported yet** (see the [roadmap](ROADMAP.md)): GitHub Copilot CLI and VS Code agent mode, OpenCode, Kilo Code, Amp, Aider, the Zed agent panel, and apps without hooks such as Claude Desktop and web chats.
 
@@ -43,7 +43,19 @@ Commands are `node scripts/agent-hooks.cjs <install|uninstall|status> <agent>`. 
 | antigravity | Finds the language server of the app or IDE, or `agy`, and checks that it contains `transcriptPath`. |
 | claude-code | Uses the `claude` CLI's own plugin commands: `claude plugin marketplace add`, `claude plugin install`, and on uninstall `claude plugin uninstall` and `claude plugin marketplace remove`. Uninstall also removes the plugin's cache and its entries in Claude's settings. |
 
-The installed command is `node <folder>/src/adapters/hooks/adapter.cjs <agent>` (Antigravity adds the event name). It is **never quoted**, because agents start it in incompatible ways: Antigravity splits it on spaces with no shell, Codex passes it to PowerShell `-Command` or `cmd.exe /C`, and others use `sh`. A path with spaces uses its 8.3 short name; if there is none, install stops with nothing changed. Node.js must be on PATH. If you move the folder, run install again.
+The installed command is `node <folder>/src/adapters/hooks/adapter.cjs <agent>` (Antigravity adds the event name). It is **never quoted**, because agents start it in incompatible ways: Antigravity splits it on spaces with no shell, Codex passes it to PowerShell `-Command` or `cmd.exe /C`, and others use `sh`. In an installation made by setup, `node` is the full path of Local Voice's own runtime (`%LOCALAPPDATA%\LocalVoice\runtime\node\node.exe`), so no Node.js is needed on PATH; Claude Code's plugin hooks get the same path. A path with spaces uses its 8.3 short name; if there is none, install stops with nothing changed. In a development checkout, `node` on PATH is used, and moving the folder needs a reinstall.
+
+## Status in the Connect agents window
+
+| Status | Meaning |
+|---|---|
+| Not installed | The agent was not found on this PC (same check as install). |
+| Installed – not connected | Found, no Local Voice hook. |
+| Connected | The hook is installed and points at this installation. |
+| Connected – needs restart | Connected while the agent was running (a process of it started before the connection), and no hook call has been logged since. Restart it to load the hook. The first hook call clears this: Claude Code, for example, loads a newly installed plugin into sessions that are already open. |
+| Needs action | A step in the agent itself: Codex hooks not yet trusted, Claude Code plugin disabled, or a hook pointing at another Local Voice folder (click Connect to repair). |
+
+Connections are recorded with their time in `%LOCALAPPDATA%\LocalVoice\resident\connections.json`.
 
 ## Never delaying or breaking the agent
 
@@ -57,7 +69,7 @@ The installed command is `node <folder>/src/adapters/hooks/adapter.cjs <agent>` 
 
 ### Claude Code
 - UserPromptSubmit carries `prompt`, Stop carries `last_assistant_message`, both carry `session_id`.
-- All three hooks run `plugin/hook-launcher.cjs` with Node. Claude runs it from its plugin cache; it finds this folder through the registered marketplace (or `LOCAL_VOICE_INSTALL_ROOT`) and hands the payload to `hook.cjs`.
+- All three hooks run `plugin/hook-launcher.cjs` with Node (the bundled runtime in an installation). Claude runs it from its plugin cache; it finds this folder through the registered marketplace (or `LOCAL_VOICE_INSTALL_ROOT`) and hands the payload to `hook.cjs`.
 
 ### Codex
 - The ChatGPT desktop app, the VS Code extension and the CLI each run `codex.exe app-server`, which runs the hooks from `~/.codex/hooks.json`.

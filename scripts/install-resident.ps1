@@ -22,7 +22,8 @@ if ($Uninstall) {
     Write-Output 'Local Voice stopped; login startup and Start menu shortcuts removed. Your settings, drafts and logs were kept in the profile folder.'
     exit 0
 }
-$nodePath = Join-Path $projectRoot 'runtime\node.exe'
+# The runtime setup installs beside the app (%LOCALAPPDATA%\LocalVoice\runtime\node); in a development checkout, node on PATH.
+$nodePath = [IO.Path]::GetFullPath((Join-Path $projectRoot '..\runtime\node\node.exe'))
 if (-not (Test-Path -LiteralPath $nodePath)) { $nodePath = (Get-Command node.exe -CommandType Application).Source }
 New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 # Restrict the token, settings and retained drafts to this Windows user and SYSTEM.
@@ -53,4 +54,6 @@ $link.WindowStyle = 7
 $link.Description = 'Start Local Voice (does nothing if it is already running)'
 $link.Save()
 Write-Output 'Local Voice login startup and Start menu shortcuts installed for the current Windows user. No administrator rights or scheduled task used.'
-if ($StartNow) { Start-Process -FilePath $powerShell -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-WindowStyle','Hidden','-ExecutionPolicy','Bypass','-File',('"' + $launcher + '"')) -WindowStyle Hidden }
+# Start it the way the Start menu does, through the Windows shell: started directly from this window, it would belong
+# to this window's job (and die when the window or the app hosting it closes) and could share an app's private AppData.
+if ($StartNow) { . (Join-Path $PSScriptRoot 'windows-shell.ps1'); Start-ViaShell $shortcut }
