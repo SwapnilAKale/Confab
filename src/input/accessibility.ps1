@@ -33,6 +33,10 @@ function Read-FocusedField($request) {
         $top = $parent
     }
     $result = @{status='editable'; runtimeId=$runtimeId; window=[string]$top.Current.NativeWindowHandle; processId=$element.Current.ProcessId}
+    # The input of an xterm.js terminal (the terminal panels of VS Code, Cursor and other editors built on them): a hidden
+    # text area that the terminal empties as soon as it takes the text, and the terminal's own text is not exposed, so
+    # a paste there can never be read back.
+    if ($element.Current.FrameworkId -eq 'Chrome' -and (([string]$element.Current.ClassName) -split '\s+') -contains 'xterm-helper-textarea') { $result.unreadable = $true }
     if ($null -ne $document) { $result.documentId = $document.GetRuntimeId() -join ','; $name = [string]$document.Current.Name; $result.documentName = if ($name.Length -gt 300) { $name.Substring(0,300) } else { $name } }
     if ($request.includeText) {
         if ($hasValue) { $result.value = $valuePattern.Current.Value } else { $result.value = $textPattern.DocumentRange.GetText(60000) }

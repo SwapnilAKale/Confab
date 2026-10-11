@@ -62,6 +62,30 @@ test('unverifiable paste stays uncertain without retry',async t=>{
   const {native,state,api}=await setup(t);api.paste=()=>{state.pastes++;return true;};
   assert.equal((await native.insert('draft',true)).reason,'text_unverified');assert.equal(state.pastes,1);assert.equal(state.enters,0);
 });
+// The input of a VS Code or Cursor terminal panel: the paste lands, but the box always reads back empty.
+async function unreadableBox(t){
+  const ctx=await setup(t),{state,api,accessibility}=ctx,snapshot=accessibility.snapshot;
+  accessibility.snapshot=async options=>({...(await snapshot(options)),unreadable:true,...(options?.includeText?{value:''}:{})});
+  api.paste=()=>{state.pastes++;return true;};return ctx;
+}
+test('a terminal input that cannot be read back reports the paste as done, not as a failure',async t=>{
+  const {native,state}=await unreadableBox(t);
+  assert.deepEqual(await native.insert('draft'),{status:'inserted',submitted:false,verified:false,reason:'box_unreadable'});
+  assert.equal(state.pastes,1,'pasted exactly once');assert.equal(state.clips.at(-1),'draft','the text stays on the clipboard as a backup');
+});
+test('an unconfirmed paste into a terminal input is never followed by Enter',async t=>{
+  const {native,state}=await unreadableBox(t);
+  const result=await native.insert('draft',true);assert.equal(result.status,'inserted');assert.equal(result.submitted,false);assert.equal(state.enters,0);
+});
+test('a terminal input that loses focus after the paste is still reported as uncertain',async t=>{
+  const {native,state,api}=await unreadableBox(t);api.paste=()=>{state.pastes++;state.window='other';return true;};
+  assert.deepEqual(await native.insert('draft'),{status:'uncertain',reason:'focus_changed'});
+});
+test('the box check marks only the xterm terminal input as unreadable',()=>{
+  const script=require('node:fs').readFileSync(require('node:path').join(__dirname,'..','src','input','accessibility.ps1'),'utf8');
+  assert.match(script,/FrameworkId -eq 'Chrome' -and \(\(\[string\]\$element\.Current\.ClassName\) -split '\\s\+'\) -contains 'xterm-helper-textarea'\) \{ \$result\.unreadable = \$true \}/);
+  assert.equal((script.match(/unreadable/g)||[]).length,1,'set in one place only');
+});
 test('accessibility exception after paste is uncertain',async t=>{
   const {native,api,accessibility}=await setup(t);api.paste=()=>{accessibility.snapshot=async()=>{throw Error();};return true;};
   assert.equal((await native.insert('draft')).status,'uncertain');

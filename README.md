@@ -60,9 +60,9 @@ Click into any text box, in any app, then:
 
 ### Terminals
 
-Local Voice does not type into terminals. In Windows Terminal, PowerShell and Command Prompt windows, the dictated text is copied to the clipboard instead, with a notification; check it and paste it with **Ctrl+V**. This applies to agents that run in a terminal too, such as the Claude Code, Codex or Gemini CLI. Dictation never lands in a shell command or an agent's terminal prompt by surprise.
+Local Voice does not type into terminal windows. In Windows Terminal, PowerShell and Command Prompt windows, the dictated text is copied to the clipboard instead, with a notification; check it and paste it with **Ctrl+V**. This applies to agents that run there too, such as the Claude Code, Codex or Gemini CLI. Dictation never lands in a shell command or an agent's terminal prompt by surprise.
 
-The terminal panels in VS Code and Cursor work differently: Windows can't tell Local Voice what they contain. Local Voice may paste there but can't confirm it, so it also copies the text to the clipboard and says it could not verify the paste. **Look at the terminal before you paste again.**
+The terminal panels inside VS Code and Cursor are different: Local Voice pastes there directly, so dictating to an agent CLI in those panels works like any other box. The text is never sent with Enter. Those panels don't let Local Voice read their text back to confirm the paste, so it keeps the text on the clipboard as a backup; if the badge says **Pasted** but nothing arrived, press **Ctrl+V**.
 
 To dictate to an agent, use its app or its chat panel in the editor (the Claude app, the Codex app, Cursor's or VS Code's agent panel). Dictation pastes there directly.
 
@@ -133,7 +133,7 @@ Start with the tray menu → **Diagnose…**. It checks the speech models, the s
 - **No tray icon:** start Local Voice from **Start → Local Voice**. If it still doesn't appear, run setup again (`& "$env:LOCALAPPDATA\LocalVoice\app\setup.cmd"`); it repairs the installation.
 - **Nothing happens on a hotkey:** hotkeys may be paused (tray menu), or another program holds the shortcut. Local Voice names it in a notification and takes the key back when it is free.
 - **"Failed" badge:** the notification says why, for example an unavailable microphone.
-- **Dictation in a terminal went to the clipboard:** that is by design; Local Voice does not type into terminals (see [Terminals](#terminals)). Paste it with Ctrl+V, or dictate into the agent's app or chat panel.
+- **Dictation in a terminal went to the clipboard:** that is by design; Local Voice does not type into terminal windows (see [Terminals](#terminals)). Paste it with Ctrl+V, or dictate into the agent's app or chat panel.
 - **A reply was not read:** it is read only if you dictated the message with Ctrl+Shift+7 and the agent is **Connected** in **Connect agents…**. An agent that shows **needs restart** or **needs action** isn't running the hook yet.
 - **Connected, but the agent never calls Local Voice** (Diagnose shows "No hook call recorded yet"): the agent may still be running without its hooks loaded, for example right after it updated itself. Quit and reopen the agent. In Codex, **Settings → Hooks** should then list three Local Voice hooks.
 - **Setup stopped:** it says why. Fix that and run it again; it carries on where it stopped.

@@ -138,6 +138,15 @@ class WindowsTextInput extends EventEmitter {
       if(!this.api.clipboardUnchanged(sequence))return {status:'rejected',reason:'clipboard_changed'};
       stage='paste';dispatched=true;
       if(!this.api.paste())return {status:'uncertain',reason:'input_incomplete'};
+      // A box that can never be read back (an xterm.js terminal input): reading it again would always look like a failed
+      // paste. Report the paste as done but unconfirmed: still the same box with focus kept and no keys pressed, the text
+      // left on the clipboard as a backup, and never followed by Enter.
+      if(before.unreadable===true){
+        stage='verify_paste';await this.wait(100);
+        reason=this.guard();if(reason)return {status:'uncertain',reason};
+        const after=await this.field();if(after.status!=='editable')return {status:'uncertain',reason:after.reason};
+        return {status:'inserted',submitted:false,verified:false,reason:'box_unreadable'};
+      }
       stage='verify_paste';let verified=false;
       for(let i=0;i<8;i++){
         await this.wait(50);
