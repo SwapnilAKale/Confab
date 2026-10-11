@@ -160,8 +160,32 @@ function disconnect(id,{root=ROOT,home,env,profile=profileApi.profileDir()}={}){
  const records=readRecords(profile);if(records[id]){delete records[id];writeRecords(profile,records);}
  return {id,ok,lines};
 }
+// Before uninstall changes anything: every agent file that holds a Local Voice entry must be readable and writable
+// (valid JSON, not read-only, not locked by another program). Returns [{id, name, file, problem}]; empty when all are.
+function disconnectProblems({home=os.homedir()}={}){
+ const problems=[];
+ const writable=file=>{try{fs.accessSync(file,fs.constants.W_OK);const fd=fs.openSync(file,'r+');fs.closeSync(fd);return null;}catch(e){return e.code==='EBUSY'||e.code==='EPERM'||e.code==='EACCES'?'it is read-only or in use by another program':e.message;}};
+ for(const agent of AGENTS.filter(a=>a.id!=='claude-code')){
+  let st;try{st=hooks.status(agent.id,{home});}catch(e){problems.push({id:agent.id,name:agent.name,file:null,problem:e.message});continue;}
+  if(st.error){problems.push({id:agent.id,name:agent.name,file:st.file,problem:st.error});continue;}
+  if(!st.installed.length)continue;
+  for(const file of st.file.split(', ')){if(!fs.existsSync(file))continue;const p=writable(file);if(p)problems.push({id:agent.id,name:agent.name,file,problem:p});}
+  const trust=loadMapping(agent.id).install.trust;
+  if(trust){const file=hooks.configFile({file:trust},home);if(fs.existsSync(file)){const p=writable(file);if(p)problems.push({id:agent.id,name:agent.name,file,problem:p});}}
+ }
+ // Claude Code: the files its leftovers are removed from must parse, or the cleanup would silently skip them.
+ const claudeDir=process.env.CLAUDE_CONFIG_DIR||path.join(home,'.claude');
+ for(const file of [path.join(claudeDir,'settings.json'),path.join(claudeDir,'plugins','installed_plugins.json'),path.join(claudeDir,'plugins','known_marketplaces.json')]){
+  let text;try{text=fs.readFileSync(file,'utf8');}catch{continue;}
+  if(!text.includes('local-voice'))continue;
+  try{JSON.parse(text.replace(/^\uFEFF/,''));}catch{problems.push({id:'claude-code',name:'Claude Code',file,problem:'it is not valid JSON'});continue;}
+  const p=writable(file);if(p)problems.push({id:'claude-code',name:'Claude Code',file,problem:p});
+ }
+ return problems;
+}
 // Every agent, whether or not this installation recorded connecting it: uninstall leaves no hook behind.
 function disconnectAll(options={}){
- return AGENTS.map(a=>{try{return disconnect(a.id,options);}catch(e){return {id:a.id,ok:false,lines:[e.message]};}});
+ // error: the hook could not be removed (ok:false alone means it was removed but the file differs from its backup).
+ return AGENTS.map(a=>{try{return disconnect(a.id,options);}catch(e){return {id:a.id,name:a.name,ok:false,error:e.message,lines:[e.message]};}});
 }
-module.exports={AGENTS,list,status,connect,disconnect,disconnectAll,claudeState,codexTrusted,stampClaudeHooks,readRecords,lastHookCalls};
+module.exports={AGENTS,list,status,connect,disconnect,disconnectAll,disconnectProblems,claudeState,codexTrusted,stampClaudeHooks,readRecords,lastHookCalls};

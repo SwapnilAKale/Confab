@@ -24,12 +24,22 @@ if ($sandbox) {
     exit 3
 }
 Remove-StaleLaunchers
+if (-not (Enter-SetupLock)) { Write-Host 'Local Voice setup or uninstall is already running in another window. Let it finish, then run setup again if needed.' -ForegroundColor Yellow; exit 4 }
 try { Start-Transcript -LiteralPath (Join-Path $env:TEMP 'local-voice-setup.log') -Force | Out-Null } catch { }
 
 function Step($text) { Write-Host ''; Write-Host $text -ForegroundColor Cyan }
 function Ok($text) { Write-Host ('  OK  ' + $text) -ForegroundColor Green }
 function Info($text) { Write-Host ('      ' + $text) }
-function Fail($text) { Write-Host ''; Write-Host ('Setup stopped: ' + $text) -ForegroundColor Red; Write-Host 'Nothing outside %LOCALAPPDATA%\LocalVoice was changed. Fix the problem above and run setup again; it carries on where it stopped.'; exit 1 }
+# Every change is staged and swapped in whole, so a stop leaves each part either as it was or fully updated. Until setup
+# finishes, the installation is marked 'installing' and Local Voice does not start half-updated.
+$script:changing = $false
+function Fail($text) {
+    Write-Host ''; Write-Host ('Setup stopped: ' + $text) -ForegroundColor Red
+    if ($script:changing) { Write-Host 'Each part of Local Voice is either as it was or fully updated, but Local Voice will not start until setup has finished. Fix the problem above and run setup again; it carries on where it stopped.' }
+    else { Write-Host 'Nothing was changed. Fix the problem above and run setup again.' }
+    exit 1
+}
+$staging = Join-Path $base 'staging'
 
 Write-Host 'Local Voice setup' -ForegroundColor White
 Write-Host ('Installing for ' + $env:USERNAME + ' into ' + $base)
@@ -57,6 +67,26 @@ if ($mics.Count) { Ok ('Microphone: ' + $mics[0].Name) } else { Info 'No microph
 if ($problems.Count) { foreach ($p in $problems) { Write-Host ('  X   ' + $p) -ForegroundColor Red }; Fail 'this PC is missing what Local Voice needs (listed above).' }
 
 New-Item -ItemType Directory -Path $base -Force | Out-Null
+Remove-InterruptedLeftovers $base
+Set-InstallState $base 'installing'; $script:changing = $true
+
+# The uninstaller and its Settings > Apps entry come first, before anything else is changed: any installation, finished
+# or not, can then be removed from Settings > Apps. The uninstaller lives in its own folder, which it deletes last, so
+# an uninstall that stops halfway can also be finished from there.
+$uninstaller = Join-Path $base 'uninstaller'
+$newUninstaller = Join-Path $staging 'uninstaller'
+Remove-Item -LiteralPath $newUninstaller -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $newUninstaller -Force | Out-Null
+foreach ($file in @('uninstall.ps1', 'windows-shell.ps1')) { Copy-Item -LiteralPath (Join-Path $source ('scripts\' + $file)) -Destination $newUninstaller -Force }
+try { Install-Staged @(@{ Staged = $newUninstaller; Target = $uninstaller }) } catch { Fail ('could not put the uninstaller in place: ' + $_.Exception.Message) }
+$uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LocalVoice'
+New-Item -Path $uninstallKey -Force | Out-Null
+$version = (Get-Content -LiteralPath (Join-Path $source 'package.json') -Raw | ConvertFrom-Json).version
+$uninstallCmd = '"' + (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') + '" -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + (Join-Path $uninstaller 'uninstall.ps1') + '" -Gui'
+foreach ($pair in @(@('DisplayName', 'Local Voice'), @('DisplayVersion', $version), @('Publisher', 'Local Voice'), @('InstallLocation', $base), @('UninstallString', $uninstallCmd))) {
+    New-ItemProperty -LiteralPath $uninstallKey -Name $pair[0] -Value $pair[1] -PropertyType String -Force | Out-Null
+}
+foreach ($flag in @('NoModify', 'NoRepair')) { New-ItemProperty -LiteralPath $uninstallKey -Name $flag -Value 1 -PropertyType DWord -Force | Out-Null }
 
 # Stop a running Local Voice first, so its files can be updated.
 $endpointFile = Join-Path $profileDir 'endpoint.json'
@@ -93,19 +123,20 @@ else {
     $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLower()
     if ($hash -ne $pin.sha256) { Remove-Item -LiteralPath $zip -Force; Fail ('the Node.js download did not match its SHA-256 checksum (got ' + $hash + '). It was deleted; run setup again.') }
     Ok 'Download matches the SHA-256 in assets\runtime.json'
-    $staging = Join-Path $base 'runtime\staging'
-    Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
-    New-Item -ItemType Directory -Path $staging -Force | Out-Null
-    & (Join-Path $system32 'tar.exe') -xf $zip -C $staging
+    # Unpacked and checked beside the installation; the runtime in use is replaced only by a working one.
+    $unpacked = Join-Path $staging 'node'
+    Remove-Item -LiteralPath $unpacked -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $unpacked -Force | Out-Null
+    & (Join-Path $system32 'tar.exe') -xf $zip -C $unpacked
     if ($LASTEXITCODE -ne 0) { Fail 'could not unpack Node.js.' }
-    Remove-Item -LiteralPath $runtime -Recurse -Force -ErrorAction SilentlyContinue
-    Move-Item -LiteralPath (Join-Path $staging $pin.folder) -Destination $runtime
-    Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $zip -Force
-    $signature = Get-AuthenticodeSignature -LiteralPath $node
+    $newNode = Join-Path $unpacked ($pin.folder + '\node.exe')
+    $signature = Get-AuthenticodeSignature -LiteralPath $newNode
     if ($signature.Status -ne 'Valid') { Fail ('node.exe is not validly signed (' + $signature.Status + ').') }
-    try { $version = & $node -v } catch { Fail ('Windows did not let node.exe run: ' + $_.Exception.Message + '. If Smart App Control blocked it, it is reported in Windows Security > App & browser control.') }
+    try { $version = & $newNode -v } catch { Fail ('Windows did not let node.exe run: ' + $_.Exception.Message + '. If Smart App Control blocked it, it is reported in Windows Security > App & browser control.') }
     if ($version -ne ('v' + $pin.version)) { Fail ('node.exe did not start (' + $version + ').') }
+    try { Install-Staged @(@{ Staged = (Join-Path $unpacked $pin.folder); Target = $runtime }) } catch { Fail ('could not put the new Node.js in place: ' + $_.Exception.Message) }
+    Remove-Item -LiteralPath $unpacked -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $zip -Force
     Ok ('Node.js ' + $pin.version + ' installed, signed by ' + $pin.signer + ', and allowed to run by Windows')
 }
 
@@ -113,18 +144,25 @@ else {
 Step '3/6  Local Voice app'
 if ($source.TrimEnd('\') -ieq $app.TrimEnd('\')) { Ok 'Running from the installed app: repairing in place' }
 else {
-    New-Item -ItemType Directory -Path $app -Force | Out-Null
-    # Mirror the code folders; the speech models in app\assets\models are kept. Folders of models an earlier version
-    # used ("retired" in assets\live-models.json) are deleted by the model step below.
-    foreach ($dir in @('src', 'scripts', 'docs', 'assets\notices')) {
-        & (Join-Path $system32 'robocopy.exe') (Join-Path $source $dir) (Join-Path $app $dir) /MIR /NJH /NJS /NFL /NDL /NP /R:2 /W:1 /XD __pycache__ | Out-Null
+    # The new code is copied beside the installation first, then swapped in as a whole: a copy that stops halfway
+    # never mixes old and new files. The speech models in app\assets\models are kept; folders of models an earlier
+    # version used ("retired" in assets\live-models.json) are deleted by the model step below.
+    $newApp = Join-Path $staging 'app'
+    Remove-Item -LiteralPath $newApp -Recurse -Force -ErrorAction SilentlyContinue
+    $dirs = @('src', 'scripts', 'docs', 'assets\notices')
+    $files = @('package.json', 'package-lock.json', 'README.md', 'THIRD_PARTY_NOTICES.md', 'setup.cmd', 'uninstall.cmd', 'assets\live-models.json', 'assets\runtime.json')
+    foreach ($dir in $dirs) {
+        & (Join-Path $system32 'robocopy.exe') (Join-Path $source $dir) (Join-Path $newApp $dir) /E /NJH /NJS /NFL /NDL /NP /R:2 /W:1 /XD __pycache__ | Out-Null
         if ($LASTEXITCODE -ge 8) { Fail ('could not copy ' + $dir + ' (robocopy exit ' + $LASTEXITCODE + ').') }
     }
-    foreach ($file in @('package.json', 'package-lock.json', 'README.md', 'THIRD_PARTY_NOTICES.md', 'setup.cmd', 'uninstall.cmd', 'assets\live-models.json', 'assets\runtime.json')) {
-        $target = Join-Path $app $file
+    foreach ($file in $files) {
+        $target = Join-Path $newApp $file
         New-Item -ItemType Directory -Path (Split-Path $target) -Force | Out-Null
-        Copy-Item -LiteralPath (Join-Path $source $file) -Destination $target -Force
+        try { Copy-Item -LiteralPath (Join-Path $source $file) -Destination $target -Force } catch { Fail ('could not copy ' + $file + ': ' + $_.Exception.Message) }
     }
+    try { Install-Staged (@($dirs + $files) | ForEach-Object { @{ Staged = (Join-Path $newApp $_); Target = (Join-Path $app $_) } }) }
+    catch { Fail ('could not put the new app files in place (the previous ones are kept): ' + $_.Exception.Message) }
+    Remove-Item -LiteralPath $newApp -Recurse -Force -ErrorAction SilentlyContinue
     Ok ('Copied to ' + $app)
 }
 $lockHash = (Get-FileHash -LiteralPath (Join-Path $app 'package-lock.json') -Algorithm SHA256).Hash
@@ -133,14 +171,22 @@ $haveModules = (Test-Path -LiteralPath $lockStamp) -and ((Get-Content -LiteralPa
 if ($haveModules) { Ok 'Libraries up to date' }
 else {
     Info 'Installing the two libraries (koffi, sherpa-onnx-node) from npm, checked against package-lock.json...'
+    # Installed into a staging folder and swapped in only when complete: npm ci starts by deleting node_modules, so
+    # running it in place would leave no libraries at all if the download failed.
     $env:Path = $runtime + ';' + $env:Path
     $cache = Join-Path $downloads 'npm-cache'
-    Push-Location $app
+    $newModules = Join-Path $staging 'npm'
+    Remove-Item -LiteralPath $newModules -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path $newModules -Force | Out-Null
+    foreach ($file in @('package.json', 'package-lock.json')) { Copy-Item -LiteralPath (Join-Path $app $file) -Destination $newModules -Force }
+    Push-Location $newModules
     try { & $node (Join-Path $runtime 'node_modules\npm\bin\npm-cli.js') ci --omit=dev --no-audit --no-fund --no-update-notifier --loglevel=error --cache $cache }
     finally { Pop-Location }
-    if ($LASTEXITCODE -ne 0) { Fail 'npm could not install the libraries. Check the internet connection.' }
-    Set-Content -LiteralPath $lockStamp -Value $lockHash
-    Remove-Item -LiteralPath $cache -Recurse -Force -ErrorAction SilentlyContinue
+    if ($LASTEXITCODE -ne 0) { Fail 'npm could not install the libraries (the previous ones are kept). Check the internet connection.' }
+    Set-Content -LiteralPath (Join-Path $newModules 'node_modules\.local-voice-lock') -Value $lockHash
+    try { Install-Staged @(@{ Staged = (Join-Path $newModules 'node_modules'); Target = (Join-Path $app 'node_modules') }) }
+    catch { Fail ('could not put the new libraries in place (the previous ones are kept): ' + $_.Exception.Message) }
+    Remove-Item -LiteralPath $newModules, $cache -Recurse -Force -ErrorAction SilentlyContinue
     Ok 'Libraries installed'
 }
 
@@ -150,19 +196,15 @@ Step '4/6  Speech models (about 1 GB on first install; checked against assets\li
 if ($LASTEXITCODE -ne 0) { Fail 'the speech models could not be downloaded or checked (see above). Run setup again to resume.' }
 Remove-Item -LiteralPath $downloads -Recurse -Force -ErrorAction SilentlyContinue
 
+Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
+
+# Every file is in place: from here Local Voice may start.
+Set-InstallState $base 'ready'; $script:changing = $false
+
 # --- 5. Background service, login startup, Start menu --------------------------------------------------------------
 Step '5/6  Background service'
 & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $app 'scripts\install-resident.ps1') -StartNow | ForEach-Object { Info $_ }
 if ($LASTEXITCODE -ne 0) { Fail 'could not install the background service.' }
-# An entry in Settings > Apps > Installed apps (per user, no administrator rights).
-$uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\LocalVoice'
-New-Item -Path $uninstallKey -Force | Out-Null
-$version = (Get-Content -LiteralPath (Join-Path $app 'package.json') -Raw | ConvertFrom-Json).version
-$uninstallCmd = '"' + (Join-Path $app 'uninstall.cmd') + '"'
-foreach ($pair in @(@('DisplayName', 'Local Voice'), @('DisplayVersion', $version), @('Publisher', 'Local Voice'), @('InstallLocation', $base), @('UninstallString', $uninstallCmd))) {
-    New-ItemProperty -LiteralPath $uninstallKey -Name $pair[0] -Value $pair[1] -PropertyType String -Force | Out-Null
-}
-foreach ($flag in @('NoModify', 'NoRepair')) { New-ItemProperty -LiteralPath $uninstallKey -Name $flag -Value 1 -PropertyType DWord -Force | Out-Null }
 New-ItemProperty -LiteralPath $uninstallKey -Name 'EstimatedSize' -Value ([int]((Get-ChildItem -LiteralPath $base -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1KB)) -PropertyType DWord -Force | Out-Null
 # Wait for the service to answer.
 $healthy = $false
@@ -202,4 +244,4 @@ Write-Host ''
 Write-Host 'Local Voice is installed.' -ForegroundColor Green
 Write-Host '  Ctrl+Shift+8  dictate          Ctrl+Shift+7  dictate with talk-back          Ctrl+Shift+6  cancel'
 Write-Host '  Tray icon menu: Connect agents, Diagnose, Uninstall.'
-Write-Host ('  To remove it later: Settings > Apps > Installed apps > Local Voice, or run "' + (Join-Path $app 'uninstall.cmd') + '".')
+Write-Host '  To remove it later: tray menu > Uninstall Local Voice, or Settings > Apps > Installed apps > Local Voice > Uninstall.'

@@ -155,21 +155,13 @@ function Show-Diagnose {
 }
 
 # --- Uninstall -----------------------------------------------------------------------------------------------------
+# The uninstaller asks, shows its progress and the summary itself, so the tray, Settings > Apps and uninstall.cmd all
+# open the same windows. It must run as its own process: it stops the service, which ends this one. The copy that setup
+# placed in %LOCALAPPDATA%\LocalVoice\uninstaller is used, the app's own copy only if that is missing.
 function Show-Uninstall {
-    $form = New-Form 'Uninstall Local Voice' 520 250
-    $text = New-Object System.Windows.Forms.Label
-    $text.Text = "This removes Local Voice from this PC for your account:`r`n  - the background service, its login startup and Start menu entry`r`n  - the hook in every connected agent (each agent's settings are restored)`r`n  - the app, its Node.js runtime, your Local Voice settings and logs"
-    $text.Location = New-Object System.Drawing.Point(16, 14); $text.Size = New-Object System.Drawing.Size(490, 90)
-    $models = New-Object System.Windows.Forms.CheckBox
-    $models.Text = 'Also delete the downloaded speech models (about 1 GB). Untick to keep them for a later install.'
-    $models.Checked = $true; $models.Location = New-Object System.Drawing.Point(18, 112); $models.Size = New-Object System.Drawing.Size(488, 44)
-    $ok = New-Button 'Uninstall' 280 200; $ok.DialogResult = 'OK'
-    $cancel = New-Button 'Cancel' 396 200; $cancel.DialogResult = 'Cancel'
-    $form.Controls.AddRange(@($text, $models, $ok, $cancel)); $form.AcceptButton = $cancel; $form.CancelButton = $cancel
-    if ($form.ShowDialog() -ne 'OK') { return }
-    $choice = '-KeepModels'; if ($models.Checked) { $choice = '-DeleteModels' }
-    # PowerShell reads the whole script before running it, so the uninstaller can delete its own folder.
-    Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Join-Path $Root 'scripts\uninstall.ps1') + '"'), $choice, '-Gui') -WorkingDirectory $env:TEMP -WindowStyle Hidden
+    $script = Join-Path $env:LOCALAPPDATA 'LocalVoice\uninstaller\uninstall.ps1'
+    if (-not (Test-Path -LiteralPath $script)) { $script = Join-Path $Root 'scripts\uninstall.ps1' }
+    Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'), '-Gui') -WorkingDirectory $env:TEMP -WindowStyle Hidden
 }
 
 try {

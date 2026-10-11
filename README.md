@@ -37,6 +37,8 @@ If you start setup from a terminal inside another app (for example a coding agen
 
 After setup you can delete the downloaded folder. Running setup again is safe: it repairs or updates the installation and never duplicates anything.
 
+If setup stops partway (a lost connection, a closed window, a full disk), nothing is left half-updated. Each part (the uninstaller, Node.js, the app, its libraries) is prepared beside the installation and swapped in whole, so it is either as it was or completely new. Until setup finishes, Local Voice does not start; at sign-in it says that setup did not finish. Run `.\setup.cmd` again to complete it, or uninstall it: the uninstaller and its **Settings → Apps** entry are put in place first, so even an unfinished installation can be removed.
+
 A Local Voice icon appears in the taskbar tray. Windows may put it under the **^** arrow; you can drag it onto the taskbar.
 
 ## Use
@@ -79,10 +81,17 @@ Any of these does the same:
 - **Settings → Apps → Installed apps → Local Voice → Uninstall**
 - In PowerShell:
   ```powershell
-  & "$env:LOCALAPPDATA\LocalVoice\app\uninstall.cmd"
+  powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\LocalVoice\uninstaller\uninstall.ps1"
   ```
 
-It removes the background service, its sign-in entry, the Start menu and Settings entries, and the hook in every agent it connected, restoring each agent's settings. It asks whether to keep the downloaded speech models (to reinstall later without downloading them again) or delete them.
+It asks whether to keep the downloaded speech models (to reinstall later without downloading them again) or delete them, then shows its progress and a summary. It removes the hook in every agent it connected, restoring each agent's settings; the background service, its sign-in entry, the Start menu and Settings entries; and the app, its Node.js and your Local Voice settings.
+
+It works in an order that never leaves Local Voice half-removed:
+
+- It first checks, changing nothing, that every agent's settings file can be restored. If one cannot (it is open in another program or is not valid), it stops and says which file, and Local Voice stays installed and working.
+- Agents are disconnected before anything else is removed.
+- Before deleting any file it moves every folder aside, which fails if a file is in use. Then it puts everything back and says which folder is in use; nothing has been deleted.
+- The **Settings → Apps** entry and the uninstaller itself are removed last. If an uninstall stops for any reason, Local Voice no longer starts, and **Settings → Apps → Local Voice → Uninstall** finishes the job.
 
 ## Settings
 

@@ -8,6 +8,16 @@ try {
         $process = Get-CimInstance Win32_Process -Filter ('ProcessId=' + [int]$running.pid) -ErrorAction SilentlyContinue
         if ($process -and $process.CommandLine -like '*resident.cjs*') { exit 0 }
     }
+    # Start only a finished installation (state.json beside the profile folder, written by setup and uninstall): a setup
+    # that stopped halfway, or an uninstall in progress, must not start a mix of old and new files.
+    $state = $null
+    try { $state = (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\state.json') -Raw | ConvertFrom-Json).state } catch { }
+    if ($state -eq 'uninstalling') { exit 0 }
+    if ($state -eq 'installing') {
+        Add-Type -AssemblyName System.Windows.Forms
+        [void][System.Windows.Forms.MessageBox]::Show("Local Voice setup did not finish, so Local Voice was not started.`r`n`r`nRun setup again to complete it: open PowerShell in the Local Voice folder you downloaded and run .\setup.cmd, or run:`r`n" + (Join-Path (Split-Path -Parent $PSScriptRoot) 'app\setup.cmd'), 'Local Voice', 'OK', 'Warning')
+        exit 0
+    }
     $install = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'install.json') -Raw | ConvertFrom-Json
     $entry = Join-Path $install.root 'src\pc\resident.cjs'
     if (-not (Test-Path -LiteralPath $entry)) { throw 'Local Voice project was moved. Run install-resident.ps1 from its new location.' }

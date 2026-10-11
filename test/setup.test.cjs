@@ -114,6 +114,48 @@ test('agent status: not connected, connected, untrusted Codex, a hook from anoth
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(profile,'connections.json'),'utf8')),{});
 });
 
+test('uninstall first checks, changing nothing, that every agent file can be restored',t=>{
+ const home=scratch('agents-check'),env={...process.env,LOCALAPPDATA:path.join(home,'Local'),PATH:''};
+ const saved=process.env.CLAUDE_CONFIG_DIR;delete process.env.CLAUDE_CONFIG_DIR;t.after(()=>{if(saved!==undefined)process.env.CLAUDE_CONFIG_DIR=saved;});
+ fs.mkdirSync(path.join(home,'.codex'),{recursive:true});
+ const bin=path.join(home,'Local','OpenAI','Codex','bin','x');fs.mkdirSync(bin,{recursive:true});fs.writeFileSync(path.join(bin,'codex.exe'),'last_assistant_message');
+ assert.deepEqual(agents.disconnectProblems({home}),[],'nothing connected: nothing to check');
+ hooks.install('codex',{home,env});
+ const file=path.join(home,'.codex','hooks.json'),before=fs.readFileSync(file,'utf8');
+ assert.deepEqual(agents.disconnectProblems({home}),[],'a connected agent whose file can be written');
+ // Read-only (as when another program holds it or a sync tool locked it): reported, and the file is not touched.
+ fs.chmodSync(file,0o444);t.after(()=>{try{fs.chmodSync(file,0o666);}catch{}});
+ const ro=agents.disconnectProblems({home});
+ assert.deepEqual(ro.map(p=>[p.id,p.file]),[['codex',file]]);assert.match(ro[0].problem,/read-only or in use/);
+ assert.equal(fs.readFileSync(file,'utf8'),before,'the check changes nothing');
+ fs.chmodSync(file,0o666);
+ // A file that does not parse cannot be restored safely.
+ fs.writeFileSync(file,'{ not json');
+ assert.deepEqual(agents.disconnectProblems({home}).map(p=>p.id),['codex']);
+ const all=agents.disconnectAll({home,env,profile:path.join(home,'profile')}),codex=all.find(r=>r.id==='codex');
+ assert.equal(all.length,agents.AGENTS.length,'every agent is reported');
+ assert.equal(codex.ok,false);assert.ok(codex.error,'a hook that could not be removed is an error, which stops the uninstall');
+ assert.ok(all.filter(r=>r.id!=='codex').every(r=>!r.error),'the other agents are unaffected');
+ // Claude Code files that mention Local Voice must parse too.
+ fs.writeFileSync(file,before);fs.mkdirSync(path.join(home,'.claude'),{recursive:true});
+ fs.writeFileSync(path.join(home,'.claude','settings.json'),'{"enabledPlugins":{"local-voice@x":true},}');
+ assert.deepEqual(agents.disconnectProblems({home}).map(p=>[p.id,p.problem]),[['claude-code','it is not valid JSON']]);
+ fs.writeFileSync(path.join(home,'.claude','settings.json'),'﻿{"enabledPlugins":{"local-voice@x":true}}');
+ assert.deepEqual(agents.disconnectProblems({home}),[],'a byte order mark is fine');
+});
+
+test('Diagnose says when a setup or an uninstall stopped partway',async()=>{
+ const diagnose=require('../src/setup/diagnose.cjs');
+ const base=scratch('diagnose-state'),root=path.join(base,'app'),profile=path.join(base,'resident');fs.mkdirSync(root);fs.mkdirSync(profile);
+ const texts=async()=>(await diagnose.run({root,profile})).filter(c=>c.area==='Service'&&!c.ok).map(c=>c.text);
+ fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({state:'installing'}));
+ assert.ok((await texts()).includes('Setup did not finish, so Local Voice does not start.'));
+ fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({state:'uninstalling'}));
+ assert.ok((await texts()).includes('An uninstall did not finish, so Local Voice does not start.'));
+ fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({state:'ready'}));
+ assert.ok(!(await texts()).some(t=>/did not finish/.test(t)));
+});
+
 test('setup removes folders of retired pieces and their verification records, and keeps everything else',async()=>{
  const root=scratch('retired');fs.mkdirSync(path.join(root,'assets','models','old-model'),{recursive:true});fs.mkdirSync(path.join(root,'assets','old-engine','lib'),{recursive:true});fs.mkdirSync(path.join(root,'assets','models','current'),{recursive:true});
  fs.writeFileSync(path.join(root,'assets','old-engine','lib','engine.dll'),'x');fs.writeFileSync(path.join(root,'assets','models','old-model','m.ort'),'x');const keep=Buffer.from('keep me');fs.writeFileSync(path.join(root,'assets','models','current','a.bin'),keep);

@@ -25,6 +25,10 @@ async function run({root=ROOT,profile=profileApi.profileDir(),full=false}={}){
  }
  if(pieces&&pieces.find(p=>/Silero/i.test(p.name))?.ok){const e=loadEngine(root);add(e?{area:'Models',ok:false,text:'The speech detector (sherpa-onnx with Silero VAD) did not load: '+e,fix:/blocked|policy|0x800711C7|Device Guard|Application Control/i.test(e)?'Windows Smart App Control blocked one of its files. Diagnose names it above; run setup again to restore the official files.':REPAIR}:{area:'Models',ok:true,text:'The speech detector (sherpa-onnx with Silero VAD) loads.'});}
  // Service
+ // state.json beside the app, written by setup and uninstall: anything but 'ready' means one of them stopped partway.
+ let state=null;try{state=JSON.parse(fs.readFileSync(path.join(root,'..','state.json'),'utf8')).state;}catch{}
+ if(state==='installing')add({area:'Service',ok:false,text:'Setup did not finish, so Local Voice does not start.',fix:REPAIR});
+ else if(state==='uninstalling')add({area:'Service',ok:false,text:'An uninstall did not finish, so Local Voice does not start.',fix:'Finish it from Settings > Apps > Installed apps > Local Voice > Uninstall, or run setup again to keep Local Voice.'});
  const node=hooks.bundledNode(root);
  add(node||!fs.existsSync(path.join(root,'..','runtime'))?{area:'Service',ok:true,text:'Node.js runtime: '+(node||process.execPath)+'.'}:{area:'Service',ok:false,text:'The bundled Node.js runtime is missing.',fix:REPAIR});
  const run=regValue('HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run','LocalVoice');
