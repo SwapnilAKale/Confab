@@ -169,3 +169,8 @@ test('uninstall finds and stops a single process running from the installation',
  assert.doesNotMatch(uninstall,/(?<!@)\((?:& \$ours|Get-ProcessesUnder [^)]*)\)\.Count/,'every process count is taken on @(...)');
  assert.match(uninstall,/@\(Get-ProcessesUnder \$base\)\.Count/);
 });
+test('Connect agents shows a step inside the agent in its own box, with a button to check again',()=>{
+ const dialogs=fs.readFileSync(path.join(__dirname,'..','src','ui','dialogs.ps1'),'utf8');
+ assert.match(dialogs,/if \(\$a\.step\) \{[\s\S]*'One more step in ' \+ \$a\.name[\s\S]*New-Button 'Done - check again'[\s\S]*\$timer\.Start\(\)/);
+ assert.match(dialogs,/\$body\.Font = \$font[\s\S]*GetPreferredSize/,'measured in the window font, so the button never overlaps the text');
+});

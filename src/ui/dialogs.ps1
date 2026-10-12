@@ -77,14 +77,33 @@ function Show-Agents {
             $row.Controls.AddRange(@($name, $state))
             $details = @()
             if ($a.state -ne 'not-installed' -and $a.state -ne 'not-connected' -and $a.state -ne 'connected' -and $a.detail) { $details += $a.detail }
-            if ($a.step) { $details += $a.step }
             if ($a.state -eq 'needs-restart' -and $a.restart) { $details += $a.restart }
             $height = 36
             if ($details.Count) {
                 $info = New-Object System.Windows.Forms.Label
                 $info.Text = $details -join "`r`n"; $info.Location = New-Object System.Drawing.Point(6, 32)
-                $info.MaximumSize = New-Object System.Drawing.Size(630, 0); $info.AutoSize = $true
-                $row.Controls.Add($info); $height = 40 + $info.PreferredHeight
+                $info.MaximumSize = New-Object System.Drawing.Size(630, 0); $info.AutoSize = $true; $info.Font = $font
+                $row.Controls.Add($info); $height = 40 + $info.GetPreferredSize((New-Object System.Drawing.Size(630, 0))).Height
+            }
+            # A step the user must take inside the agent (Codex: trust the hook) gets its own highlighted box, with a
+            # button to check again once it is done.
+            if ($a.step) {
+                $box = New-Object System.Windows.Forms.Panel
+                $box.BackColor = [System.Drawing.Color]::FromArgb(255, 244, 214); $box.BorderStyle = 'FixedSingle'
+                $box.Location = New-Object System.Drawing.Point(6, $height); $box.Width = 636
+                $head = New-Object System.Windows.Forms.Label
+                $head.Text = 'One more step in ' + $a.name + ', or talk-back stays silent'; $head.Font = $bold; $head.ForeColor = [System.Drawing.Color]::FromArgb(138, 74, 0)
+                $head.Location = New-Object System.Drawing.Point(10, 8); $head.AutoSize = $true
+                $body = New-Object System.Windows.Forms.Label
+                $body.Text = $a.step -replace '\. (?=[A-Z])', ".`r`n"; $body.Location = New-Object System.Drawing.Point(10, 34)
+                $body.MaximumSize = New-Object System.Drawing.Size(610, 0); $body.AutoSize = $true
+                # Measured in the window's font at the box width (before it joins the window it would measure in the default font).
+                $body.Font = $font
+                $bodyHeight = $body.GetPreferredSize((New-Object System.Drawing.Size(610, 0))).Height
+                $again = New-Button 'Done - check again' 10 (44 + $bodyHeight) 150
+                $again.BackColor = [System.Drawing.SystemColors]::Control; $again.Add_Click({ $timer.Start() })
+                $box.Controls.AddRange(@($head, $body, $again)); $box.Height = 86 + $bodyHeight
+                $row.Controls.Add($box); $height += $box.Height + 8
             }
             $buttons = @()
             if ($a.state -eq 'not-connected' -or ($a.state -eq 'needs-action' -and -not $a.step)) { $buttons += ,@('Connect', 'connect') }
