@@ -16,6 +16,8 @@ Works with Claude Code, Codex, Cursor, Antigravity and other agents with lifecyc
 
 Nothing else: setup brings its own copy of Node.js. You don't need administrator rights, and setup changes no Windows security or firewall settings.
 
+**Smart App Control.** Local Voice is not code-signed yet. On PCs where Windows' Smart App Control is turned on (Windows Security → App & browser control), Windows decides by reputation whether to let unsigned program files run, and it may block one of the speech engine's files. If that happens, the tray menu → **Diagnose…** names the blocked file. Local Voice never changes this setting for you.
+
 ## Install
 
 1. Download this folder (for example **Code → Download ZIP** and unzip it) and open it.
