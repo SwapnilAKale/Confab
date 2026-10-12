@@ -133,11 +133,12 @@ function Show-Agents {
             try { $r = $raw | ConvertFrom-Json } catch { $r = [pscustomobject]@{ error = $raw } }
             if ($r -is [array]) { $r = $r[0] }
             if ($r.error) { [void][System.Windows.Forms.MessageBox]::Show($form, $r.error, 'Local Voice - ' + $label, 'OK', 'Warning') }
+            # A step inside the agent (Codex: trust the hook) needs no message: the list shows it in its own box.
+            elseif ($what -eq 'connect' -and $r.step) { }
             elseif ($what -eq 'connect') {
                 $message = $label + ' is connected.'
-                if ($r.step) { $message += "`r`n`r`nOne more step in " + $label + ":`r`n" + $r.step }
                 if ($r.state -eq 'needs-restart' -and $r.restart) { $message += "`r`n`r`n" + $label + ' is running and loads the hook only after a restart:' + "`r`n" + $r.restart }
-                elseif (-not $r.step) { $message += "`r`n`r`nNew conversations in " + $label + ' use it. Dictate with Ctrl+Shift+7 to hear the reply.' }
+                else { $message += "`r`n`r`nNew conversations in " + $label + ' use it. Dictate with Ctrl+Shift+7 to hear the reply.' }
                 [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Local Voice - ' + $label, 'OK', 'Information')
             } else {
                 $message = $label + ' is disconnected; its settings are back as they were.'
