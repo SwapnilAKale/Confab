@@ -1,13 +1,13 @@
 {
-  "name": "local-voice-local",
+  "name": "confab-local",
   "owner": {
-    "name": "Local Voice"
+    "name": "Confab"
   },
   "plugins": [
     {
-      "name": "local-voice",
+      "name": "confab",
       "source": "./plugin",
-      "description": "Local Voice read-aloud hooks for Claude Code.",
+      "description": "Confab read-aloud hooks for Claude Code.",
       "version": "0.8.0"
     }
   ]

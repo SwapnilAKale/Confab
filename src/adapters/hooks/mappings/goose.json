@@ -1,5 +1,5 @@
 {
-  "about": "Goose hooks from a plugin folder (~/.agents/plugins/local-voice). The event name is in \"event\"; UserPromptSubmit carries the prompt in \"message\". Goose runs hooks with sh -c, even on Windows.",
+  "about": "Goose hooks from a plugin folder (~/.agents/plugins/confab). The event name is in \"event\"; UserPromptSubmit carries the prompt in \"message\". Goose runs hooks with sh -c, even on Windows.",
   "agent": "goose",
   "eventField": [
     "event",
@@ -30,14 +30,14 @@
         }
       ]
     },
-    "ownDir": "~/.agents/plugins/local-voice",
+    "ownDir": "~/.agents/plugins/confab",
     "files": {
-      "~/.agents/plugins/local-voice/plugin.json": {
-        "name": "local-voice",
+      "~/.agents/plugins/confab/plugin.json": {
+        "name": "confab",
         "version": "1.0.0",
-        "description": "Local Voice read-aloud: reports prompts and final replies (runs adapters/hooks/adapter.cjs)."
+        "description": "Confab read-aloud: reports prompts and final replies (runs adapters/hooks/adapter.cjs)."
       },
-      "~/.agents/plugins/local-voice/hooks/hooks.json": {
+      "~/.agents/plugins/confab/hooks/hooks.json": {
         "hooks": {
           "UserPromptSubmit": [
             {

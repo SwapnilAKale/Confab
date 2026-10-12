@@ -1,5 +1,5 @@
 {
-  "name": "local-voice",
+  "name": "confab",
   "version": "0.8.0",
   "private": true,
   "description": "Local, offline dictation and talk-back read-aloud for Windows, with hooks for coding agents.",

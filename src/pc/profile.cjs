@@ -1,6 +1,6 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),os=require('node:os');
-function profileDir(){return path.join(process.env.LOCALAPPDATA||path.join(os.homedir(),'AppData','Local'),'LocalVoice','resident');}
+function profileDir(){return path.join(process.env.LOCALAPPDATA||path.join(os.homedir(),'AppData','Local'),'Confab','resident');}
 function initialize(dir=profileDir()){fs.mkdirSync(dir,{recursive:true});const file=path.join(dir,'auth.json');if(!fs.existsSync(file)){try{fs.writeFileSync(file,JSON.stringify({token:crypto.randomBytes(32).toString('hex')}),{flag:'wx',mode:0o600});}catch(e){if(e.code!=='EEXIST')throw e;}}return connection(dir);}
 function connection(dir=profileDir()){try{const auth=JSON.parse(fs.readFileSync(path.join(dir,'auth.json'),'utf8'));if(!/^[a-f0-9]{64}$/.test(auth.token))return null;let endpoint;try{endpoint=JSON.parse(fs.readFileSync(path.join(dir,'endpoint.json'),'utf8'));}catch{}return {...endpoint,token:auth.token};}catch{return null;}}
 function settings(dir=profileDir()){let value={};try{value=JSON.parse(fs.readFileSync(path.join(dir,'settings.json'),'utf8'));}catch{}// readMode: 'talkback' (default) or 'off'. A legacy readAloud:false means 'off'; the removed

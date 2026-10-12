@@ -34,7 +34,7 @@
     },
     "file": "~/.gemini/config/hooks.json",
     "format": "group",
-    "group": "local-voice",
+    "group": "confab",
     "eventArg": true,
     "events": {
       "Stop": {

@@ -1,5 +1,5 @@
-# Local Voice tray windows: Connect agents, Diagnose and Uninstall. Started by the tray (src/pc/resident.cjs) with no
-# console window. All work is done by the app's own scripts, run with Local Voice's Node.js runtime.
+# Confab tray windows: Connect agents, Diagnose and Uninstall. Started by the tray (src/pc/resident.cjs) with no
+# console window. All work is done by the app's own scripts, run with Confab's Node.js runtime.
 param([ValidateSet('agents', 'diagnose', 'uninstall')][string]$Mode = 'agents', [string]$Node, [string]$Root)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -27,6 +27,8 @@ function New-Form([string]$title, [int]$w, [int]$h) {
     $f.Text = $title; $f.Font = $font; $f.StartPosition = 'CenterScreen'; $f.TopMost = $true
     $f.ClientSize = New-Object System.Drawing.Size($w, $h); $f.MinimizeBox = $false; $f.MaximizeBox = $false
     $f.FormBorderStyle = 'FixedDialog'
+    $iconFile = Join-Path $Root 'assets\app.ico'
+    if (Test-Path -LiteralPath $iconFile) { try { $f.Icon = New-Object System.Drawing.Icon $iconFile } catch { } }
     # The tray starts PowerShell with a hidden console, and Windows applies that "hidden" to the first window shown.
     # Opening minimized and restoring once shown makes the form visible.
     $f.Add_Load({ $this.WindowState = 'Minimized' })
@@ -41,9 +43,9 @@ function New-Button([string]$text, [int]$x, [int]$y, [int]$w = 110) {
 
 # --- Connect agents ------------------------------------------------------------------------------------------------
 function Show-Agents {
-    $form = New-Form 'Local Voice - Connect agents' 700 560
+    $form = New-Form 'Confab - Connect agents' 700 560
     $intro = New-Object System.Windows.Forms.Label
-    $intro.Text = 'Connect Local Voice to your coding agents so that replies to messages you dictate with talk-back (Ctrl+Shift+7) are read aloud. Dictation itself works in every app without connecting anything.'
+    $intro.Text = 'Connect Confab to your coding agents so that replies to messages you dictate with talk-back (Ctrl+Shift+7) are read aloud. Dictation itself works in every app without connecting anything.'
     $intro.Location = New-Object System.Drawing.Point(16, 12); $intro.Size = New-Object System.Drawing.Size(668, 40)
     $form.Controls.Add($intro)
     $panel = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -132,18 +134,18 @@ function Show-Agents {
             $form.Cursor = 'Default'; $panel.Enabled = $true
             try { $r = $raw | ConvertFrom-Json } catch { $r = [pscustomobject]@{ error = $raw } }
             if ($r -is [array]) { $r = $r[0] }
-            if ($r.error) { [void][System.Windows.Forms.MessageBox]::Show($form, $r.error, 'Local Voice - ' + $label, 'OK', 'Warning') }
+            if ($r.error) { [void][System.Windows.Forms.MessageBox]::Show($form, $r.error, 'Confab - ' + $label, 'OK', 'Warning') }
             # A step inside the agent (Codex: trust the hook) needs no message: the list shows it in its own box.
             elseif ($what -eq 'connect' -and $r.step) { }
             elseif ($what -eq 'connect') {
                 $message = $label + ' is connected.'
                 if ($r.state -eq 'needs-restart' -and $r.restart) { $message += "`r`n`r`n" + $label + ' is running and loads the hook only after a restart:' + "`r`n" + $r.restart }
                 else { $message += "`r`n`r`nNew conversations in " + $label + ' use it. Dictate with Ctrl+Shift+7 to hear the reply.' }
-                [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Local Voice - ' + $label, 'OK', 'Information')
+                [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Confab - ' + $label, 'OK', 'Information')
             } else {
                 $message = $label + ' is disconnected; its settings are back as they were.'
-                if ($r.ok -eq $false) { $message = $label + ': the hook was removed, but the file differs from the copy saved before Local Voice changed it. That copy was kept beside it (.local-voice.bak).' }
-                [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Local Voice - ' + $label, 'OK', 'Information')
+                if ($r.ok -eq $false) { $message = $label + ': the hook was removed, but the file differs from the copy saved before Confab changed it. That copy was kept beside it (.confab.bak).' }
+                [void][System.Windows.Forms.MessageBox]::Show($form, $message, 'Confab - ' + $label, 'OK', 'Information')
             }
         }
         & $load
@@ -155,7 +157,7 @@ function Show-Agents {
 
 # --- Diagnose ------------------------------------------------------------------------------------------------------
 function Show-Diagnose {
-    $form = New-Form 'Local Voice - Diagnose' 720 520
+    $form = New-Form 'Confab - Diagnose' 720 520
     $box = New-Object System.Windows.Forms.TextBox
     $box.Multiline = $true; $box.ReadOnly = $true; $box.ScrollBars = 'Vertical'; $box.WordWrap = $true
     $box.Font = New-Object System.Drawing.Font('Consolas', 9.5); $box.BackColor = [System.Drawing.Color]::White
@@ -177,9 +179,9 @@ function Show-Diagnose {
 # --- Uninstall -----------------------------------------------------------------------------------------------------
 # The uninstaller asks, shows its progress and the summary itself, so the tray, Settings > Apps and uninstall.cmd all
 # open the same windows. It must run as its own process: it stops the service, which ends this one. The copy that setup
-# placed in %LOCALAPPDATA%\LocalVoice\uninstaller is used, the app's own copy only if that is missing.
+# placed in %LOCALAPPDATA%\Confab\uninstaller is used, the app's own copy only if that is missing.
 function Show-Uninstall {
-    $script = Join-Path $env:LOCALAPPDATA 'LocalVoice\uninstaller\uninstall.ps1'
+    $script = Join-Path $env:LOCALAPPDATA 'Confab\uninstaller\uninstall.ps1'
     if (-not (Test-Path -LiteralPath $script)) { $script = Join-Path $Root 'scripts\uninstall.ps1' }
     Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList @('-NoLogo', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'), '-Gui') -WorkingDirectory $env:TEMP -WindowStyle Hidden
 }
@@ -187,5 +189,5 @@ function Show-Uninstall {
 try {
     switch ($Mode) { 'agents' { Show-Agents } 'diagnose' { Show-Diagnose } 'uninstall' { Show-Uninstall } }
 } catch {
-    [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Local Voice', 'OK', 'Error')
+    [void][System.Windows.Forms.MessageBox]::Show($_.Exception.Message, 'Confab', 'OK', 'Error')
 }

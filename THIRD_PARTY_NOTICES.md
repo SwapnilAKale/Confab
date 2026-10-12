@@ -1,6 +1,6 @@
 # Third-party notices
 
-Local Voice uses the components below. Each keeps its own licence. The speech models are not stored in this repository; they are downloaded into `assets/` (sources and checksums in `assets/live-models.json`), and each keeps its licence files in its folder.
+Confab uses the components below. Each keeps its own licence. The speech models are not stored in this repository; they are downloaded into `assets/` (sources and checksums in `assets/live-models.json`), and each keeps its licence files in its folder.
 
 ## Speech models
 
@@ -18,7 +18,7 @@ Local Voice uses the components below. Each keeps its own licence. The speech mo
 | sherpa-onnx-node, sherpa-onnx-win-x64 | 1.13.7, 1.13.8 | Apache 2.0 | https://github.com/k2-fsa/sherpa-onnx |
 | ONNX Runtime (bundled in sherpa-onnx-win-x64) | — | MIT | https://github.com/microsoft/onnxruntime |
 | Koffi | 3.2.1 | MIT | https://github.com/Koromix/koffi |
-| Node.js (official Windows x64 build, downloaded by setup into %LOCALAPPDATA%\LocalVoice\runtime\node, not stored in this repository) | 24.21.0 | MIT, with the licences of its bundled dependencies in the LICENSE file beside node.exe | https://nodejs.org |
+| Node.js (official Windows x64 build, downloaded by setup into %LOCALAPPDATA%\Confab\runtime\node, not stored in this repository) | 24.21.0 | MIT, with the licences of its bundled dependencies in the LICENSE file beside node.exe | https://nodejs.org |
 
 ## Test data
 

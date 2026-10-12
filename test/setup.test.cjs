@@ -78,7 +78,7 @@ test('installed hooks run the bundled Node.js runtime when setup installed one',
  const dir=scratch('bundled'),root=path.join(dir,'app');fs.mkdirSync(path.join(dir,'runtime','node'),{recursive:true});fs.writeFileSync(path.join(dir,'runtime','node','node.exe'),'');
  assert.equal(hooks.bundledNode(root),path.join(dir,'runtime','node','node.exe'));
  assert.equal(hooks.bundledNode(path.join(__dirname,'..')),null,'a development checkout uses node on PATH');
- assert.equal(hooks.command('codex','Stop',{node:'C:\\Users\\A\\AppData\\Local\\LocalVoice\\runtime\\node\\node.exe',adapter:'C:\\Users\\A\\AppData\\Local\\LocalVoice\\app\\src\\adapters\\hooks\\adapter.cjs'}),'C:/Users/A/AppData/Local/LocalVoice/runtime/node/node.exe C:/Users/A/AppData/Local/LocalVoice/app/src/adapters/hooks/adapter.cjs codex');
+ assert.equal(hooks.command('codex','Stop',{node:'C:\\Users\\A\\AppData\\Local\\Confab\\runtime\\node\\node.exe',adapter:'C:\\Users\\A\\AppData\\Local\\Confab\\app\\src\\adapters\\hooks\\adapter.cjs'}),'C:/Users/A/AppData/Local/Confab/runtime/node/node.exe C:/Users/A/AppData/Local/Confab/app/src/adapters/hooks/adapter.cjs codex');
  assert.equal(hooks.command('codex','Stop',{node:'C:\\Users\\A B\\node.exe',adapter:'C:\\x\\adapter.cjs',shortPath:()=>'C:\\Users\\AB~1\\node.exe'}),'C:/Users/AB~1/node.exe C:/x/adapter.cjs codex');
  assert.throws(()=>hooks.command('codex','Stop',{node:'C:\\Users\\A B\\node.exe',adapter:'C:\\x\\adapter.cjs',shortPath:()=>null}),/no short.*Nothing was changed/);
 });
@@ -105,11 +105,11 @@ test('agent status: not connected, connected, untrusted Codex, a hook from anoth
  fs.writeFileSync(path.join(profile,'hooks.jsonl'),JSON.stringify({at:new Date(at+5000).toISOString(),harness:'codex',event:'Stop'})+'\n');
  assert.equal(agents.status('codex',{...opts,records:undefined,processes:[{name:'codex.exe',started:at-60000}]}).state,'connected');
  fs.unlinkSync(path.join(profile,'hooks.jsonl'));
- // A hook pointing at another Local Voice folder.
+ // A hook pointing at another Confab folder.
  const config=JSON.parse(fs.readFileSync(file,'utf8'));config.hooks.Stop[0].hooks[0].command='node C:/old/src/adapters/hooks/adapter.cjs codex';fs.writeFileSync(file,JSON.stringify(config));
- assert.match(agents.status('codex',opts).detail,/different Local Voice folder/);
+ assert.match(agents.status('codex',opts).detail,/different Confab folder/);
  // Disconnect restores the agent's files.
- const d=agents.disconnect('codex',{home,env,profile});assert.equal(d.ok,true);assert.equal(fs.existsSync(file),false,'a hooks.json Local Voice created is deleted');
+ const d=agents.disconnect('codex',{home,env,profile});assert.equal(d.ok,true);assert.equal(fs.existsSync(file),false,'a hooks.json Confab created is deleted');
  assert.equal(fs.readFileSync(path.join(home,'.codex','config.toml'),'utf8').includes('hooks.state'),false,'trust entries removed');
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(profile,'connections.json'),'utf8')),{});
 });
@@ -136,11 +136,11 @@ test('uninstall first checks, changing nothing, that every agent file can be res
  assert.equal(all.length,agents.AGENTS.length,'every agent is reported');
  assert.equal(codex.ok,false);assert.ok(codex.error,'a hook that could not be removed is an error, which stops the uninstall');
  assert.ok(all.filter(r=>r.id!=='codex').every(r=>!r.error),'the other agents are unaffected');
- // Claude Code files that mention Local Voice must parse too.
+ // Claude Code files that mention Confab must parse too.
  fs.writeFileSync(file,before);fs.mkdirSync(path.join(home,'.claude'),{recursive:true});
- fs.writeFileSync(path.join(home,'.claude','settings.json'),'{"enabledPlugins":{"local-voice@x":true},}');
+ fs.writeFileSync(path.join(home,'.claude','settings.json'),'{"enabledPlugins":{"confab@x":true},}');
  assert.deepEqual(agents.disconnectProblems({home}).map(p=>[p.id,p.problem]),[['claude-code','it is not valid JSON']]);
- fs.writeFileSync(path.join(home,'.claude','settings.json'),'﻿{"enabledPlugins":{"local-voice@x":true}}');
+ fs.writeFileSync(path.join(home,'.claude','settings.json'),'﻿{"enabledPlugins":{"confab@x":true}}');
  assert.deepEqual(agents.disconnectProblems({home}),[],'a byte order mark is fine');
 });
 
@@ -149,9 +149,9 @@ test('Diagnose says when a setup or an uninstall stopped partway',async()=>{
  const base=scratch('diagnose-state'),root=path.join(base,'app'),profile=path.join(base,'resident');fs.mkdirSync(root);fs.mkdirSync(profile);
  const texts=async()=>(await diagnose.run({root,profile})).filter(c=>c.area==='Service'&&!c.ok).map(c=>c.text);
  fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({state:'installing'}));
- assert.ok((await texts()).includes('Setup did not finish, so Local Voice does not start.'));
+ assert.ok((await texts()).includes('Setup did not finish, so Confab does not start.'));
  fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({state:'uninstalling'}));
- assert.ok((await texts()).includes('An uninstall did not finish, so Local Voice does not start.'));
+ assert.ok((await texts()).includes('An uninstall did not finish, so Confab does not start.'));
  fs.writeFileSync(path.join(base,'state.json'),JSON.stringify({state:'ready'}));
  assert.ok(!(await texts()).some(t=>/did not finish/.test(t)));
 });

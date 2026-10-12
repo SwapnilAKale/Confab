@@ -1,13 +1,13 @@
 # Developer guide
 
-For anyone connecting an agent to Local Voice, adding support for a new agent, or working on Local Voice itself.
+For anyone connecting an agent to Confab, adding support for a new agent, or working on Confab itself.
 
 - [How it fits together](#how-it-fits-together)
 - [Custom agents](#custom-agents): read your own agent's replies aloud
 - [Adding an agent](#adding-an-agent) with lifecycle hooks
 - [Hotkeys](#hotkeys)
 - [What is spoken](#what-is-spoken) and [Pronunciation](#pronunciation)
-- [Working on Local Voice](#working-on-local-voice)
+- [Working on Confab](#working-on-confab)
 
 ## How it fits together
 
@@ -18,17 +18,17 @@ For anyone connecting an agent to Local Voice, adding support for a new agent, o
             └─ reply ─▶ reply-text rules ─▶ Node normaliser ─▶ Kokoro ─▶ speakers
                  ▲
  agent hooks ─▶ src/adapters/hooks/adapter.cjs ─┐
- custom agent ─▶ src/pc/client.cjs or local_voice.py ─┴─▶ POST http://127.0.0.1:<port>/event
+ custom agent ─▶ src/pc/client.cjs or confab.py ─┴─▶ POST http://127.0.0.1:<port>/event
 ```
 
 - **Resident service** (`src/pc/`): one process per Windows user, started at login. It owns the tray, the global hotkeys, the badge, audio, and a loopback HTTP endpoint. Speech models load in worker processes on first use (`src/service/native-engine.cjs`, `src/speech-worker.cjs`) and unload after 15 idle minutes.
 - **Input** (`src/input/`): `RegisterHotKey` hotkeys (no keyboard hook), clipboard paste with one Ctrl+V and clipboard restore, and a UI Automation helper that identifies the focused box.
 - **Agent hooks** (`src/adapters/hooks/`): one adapter program plus a mapping file per agent; `install.cjs` writes and removes the hook entries. The Claude Code plugin lives in `src/adapters/claude-code/`.
-- **Profile** (`%LOCALAPPDATA%\LocalVoice\resident\`): `auth.json` (token), `endpoint.json` (port, while running), `settings.json`, `drafts/`, and the logs `requests.jsonl` and `hooks.jsonl`. The installer limits the folder to the current user and SYSTEM.
+- **Profile** (`%LOCALAPPDATA%\Confab\resident\`): `auth.json` (token), `endpoint.json` (port, while running), `settings.json`, `drafts/`, and the logs `requests.jsonl` and `hooks.jsonl`. The installer limits the folder to the current user and SYSTEM.
 
 ## Custom agents
 
-Any agent with a backend can have its replies spoken. You don't need to read Local Voice's source code.
+Any agent with a backend can have its replies spoken. You don't need to read Confab's source code.
 
 ### How talk-back works
 
@@ -53,24 +53,24 @@ Make two HTTP calls from your agent's **backend process**:
 1. **When a user message arrives**, send a `turn` event with the message text and a turn ID.
 2. **After the final public answer for that message**, send a `reply` event with the same turn ID.
 
-Do this for every message, however it arrived. Dictation pastes text into whatever box has focus, so dictated text reaches your backend through your own UI, exactly like typed text. Local Voice never sees the message unless your backend reports it. That is why the service matches the turn text.
+Do this for every message, however it arrived. Dictation pastes text into whatever box has focus, so dictated text reaches your backend through your own UI, exactly like typed text. Confab never sees the message unless your backend reports it. That is why the service matches the turn text.
 
 Send only the public final answer as the reply: never chain of thought, scratchpad, tool payloads or partial streaming output.
 
 ### Clients
 
-Two single-file clients do the discovery, headers and timeouts for you. Copy one into your project. An installed Local Voice has them in `%LOCALAPPDATA%\LocalVoice\app\src\pc\` (`local_voice.py` and `client.cjs`). Your agent needs no connecting in the tray: the clients find the running service by themselves.
+Two single-file clients do the discovery, headers and timeouts for you. Copy one into your project. An installed Confab has them in `%LOCALAPPDATA%\Confab\app\src\pc\` (`confab.py` and `client.cjs`). Your agent needs no connecting in the tray: the clients find the running service by themselves.
 
-**Python** ([`src/pc/local_voice.py`](../src/pc/local_voice.py), standard library only, Python 3.8+):
+**Python** ([`src/pc/confab.py`](../src/pc/confab.py), standard library only, Python 3.8+):
 
 ```python
-from local_voice import turn, speak
+from confab import turn, speak
 
 def handle_message(message: str, conversation_id: str) -> str:
     t = turn(message, agent="my-agent", session_id=conversation_id)      # as the message arrives
     answer = run_agent(message)                                           # your agent
     result = speak(answer, agent="my-agent", session_id=conversation_id, turn_id=t["turnId"])
-    log.debug("Local Voice: turn=%s reply=%s", t["reason"], result["reason"])   # development visibility
+    log.debug("Confab: turn=%s reply=%s", t["reason"], result["reason"])   # development visibility
     return answer
 ```
 
@@ -81,7 +81,7 @@ def handle_message(message: str, conversation_id: str) -> str:
 **Node** ([`src/pc/client.cjs`](../src/pc/client.cjs), Node built-ins only):
 
 ```js
-const {turn,speak}=require('./local-voice-client.cjs');
+const {turn,speak}=require('./confab-client.cjs');
 const t=await turn(message,{agent:'my-agent',sessionId:conversationId});
 const answer=await runAgent(message);
 await speak(answer,{agent:'my-agent',sessionId:conversationId,turnId:t.turnId});
@@ -92,7 +92,7 @@ await speak(answer,{agent:'my-agent',sessionId:conversationId,turnId:t.turnId});
 Both files live in the per-user profile folder:
 
 ```text
-%LOCALAPPDATA%\LocalVoice\resident\
+%LOCALAPPDATA%\Confab\resident\
   endpoint.json   {"pid": 1234, "port": 52151, "version": "0.8.0"}   (written while the service runs)
   auth.json       {"token": "<64 lowercase hex characters>"}          (created at install; never changes)
 ```
@@ -158,7 +158,7 @@ Every response is JSON: `{"accepted": <bool>, "reason": "<code>"}`. Some also ca
 | 200 | false | `disabled` | `reply`: the tray mode is *Off*. |
 | 200 | false | `duplicate` | `reply`: this `id` was already received for this `agent` + `sessionId`. |
 | 200 | false | `display_only` | `reply`: nothing in it can be spoken. `detail` is `code`, `diff`, `path`, `url`, `json`, `too_long` or `empty`. See [What is spoken](#what-is-spoken). |
-| 200 | false | `paused` | The user paused Local Voice in the tray. Turns are not matched while paused. |
+| 200 | false | `paused` | The user paused Confab in the tray. Turns are not matched while paused. |
 | 200 | false | `queue_full` | 100 replies are already waiting. |
 | 200 | true | `recorded` | `detach` was applied. |
 | 200 | true | `discarded` | `reply-end` with a status other than `completed`; `detail` is the status. |
@@ -201,7 +201,7 @@ The service appends one JSON line per request to `requests.jsonl` in the profile
 ### Example: curl (Windows PowerShell)
 
 ```powershell
-$dir = "$env:LOCALAPPDATA\LocalVoice\resident"
+$dir = "$env:LOCALAPPDATA\Confab\resident"
 $port = (Get-Content "$dir\endpoint.json" | ConvertFrom-Json).port
 $token = (Get-Content "$dir\auth.json" | ConvertFrom-Json).token
 $turnId = [guid]::NewGuid().ToString()
@@ -321,7 +321,7 @@ After the rules above, the Node normaliser (`src/pc/spoken-normalizer.cjs`, no d
 
 **Where it differs from NeMo:**
 
-| Input | NeMo | Local Voice | Verdict |
+| Input | NeMo | Confab | Verdict |
 |---|---|---|---|
 | `13000`, `123000` | digit by digit | thirteen thousand | Better |
 | `2-5`, `from 2-10` | "two - five" | "two to five" | Better for ranges |
@@ -353,7 +353,7 @@ After the rules above, the Node normaliser (`src/pc/spoken-normalizer.cjs`, no d
 - Otherwise `dateOrder` in `settings.json` decides: `"dmy"` (default) or `"mdy"`.
 - Day-first reads "the seventh of October twenty twenty six"; month-first reads "July tenth twenty twenty six".
 
-## Working on Local Voice
+## Working on Confab
 
 ```bash
 npm install
@@ -363,9 +363,9 @@ npm install
 npm test
 ```
 
-- `npm test` runs every `*.test.cjs` in `test/` and `src/adapters/claude-code/test/`. Some tests load the real speech models from `assets/models/`, so download them first: `node scripts/models.cjs fetch` (the same downloader setup uses; `check --full` re-hashes every file). One test runs `src/pc/local_voice.py`, so Python 3.8+ should be on PATH.
-- Setup and uninstall are `scripts/setup.ps1` and `scripts/uninstall.ps1`, started by `setup.cmd` and `uninstall.cmd`. The installed layout is `%LOCALAPPDATA%\LocalVoice\app` (a copy of this folder with `node_modules` and the models), `runtime\node` (Node.js pinned in [`assets/runtime.json`](../assets/runtime.json)) and `resident` (the profile). The tray's windows are `src/ui/dialogs.ps1`; they call `scripts/agents.cjs` and `scripts/diagnose.cjs`, which you can also run directly.
-- **Atomic setup and uninstall.** The shared helpers are in `scripts/windows-shell.ps1`. A named mutex (`Local\LocalVoiceSetup`) lets only one setup or uninstall run at a time. `state.json` in the installation folder is `installing`, `ready` or `uninstalling`, and the launcher (`scripts/start-resident.ps1`) starts the service only when it is `ready` or absent. Setup first copies the uninstaller to `uninstaller\` and registers the **Settings → Apps** entry, which runs it with `-Gui`. Node.js, the app files and `node_modules` are then built in `staging\` and swapped in with `Install-Staged`, which renames each target to `*.old-xxxxxxxx` and undoes every swap if one fails. Uninstall runs `agents.cjs check-disconnect` (read-only) before `disconnect all`, then removes startup, stops processes, and renames every folder to `*.removing-xxxxxxxx` before deleting (a file in use stops it with all moves undone). It removes the Apps entry and its own folder last. `Remove-InterruptedLeftovers` clears staging and renamed folders left by an interrupted run. The tray and Settings → Apps open the same uninstaller windows (`-Gui`): confirmation, a progress window in its own process (it outlives the service), and a summary. `uninstall.cmd` runs the same steps in the console.
+- `npm test` runs every `*.test.cjs` in `test/` and `src/adapters/claude-code/test/`. Some tests load the real speech models from `assets/models/`, so download them first: `node scripts/models.cjs fetch` (the same downloader setup uses; `check --full` re-hashes every file). One test runs `src/pc/confab.py`, so Python 3.8+ should be on PATH.
+- Setup and uninstall are `scripts/setup.ps1` and `scripts/uninstall.ps1`, started by `setup.cmd` and `uninstall.cmd`. The installed layout is `%LOCALAPPDATA%\Confab\app` (a copy of this folder with `node_modules` and the models), `runtime\node` (Node.js pinned in [`assets/runtime.json`](../assets/runtime.json)) and `resident` (the profile). The tray's windows are `src/ui/dialogs.ps1`; they call `scripts/agents.cjs` and `scripts/diagnose.cjs`, which you can also run directly.
+- **Atomic setup and uninstall.** The shared helpers are in `scripts/windows-shell.ps1`. A named mutex (`Local\ConfabSetup`) lets only one setup or uninstall run at a time. `state.json` in the installation folder is `installing`, `ready` or `uninstalling`, and the launcher (`scripts/start-resident.ps1`) starts the service only when it is `ready` or absent. Setup first copies the uninstaller to `uninstaller\` and registers the **Settings → Apps** entry, which runs it with `-Gui`. Node.js, the app files and `node_modules` are then built in `staging\` and swapped in with `Install-Staged`, which renames each target to `*.old-xxxxxxxx` and undoes every swap if one fails. Uninstall runs `agents.cjs check-disconnect` (read-only) before `disconnect all`, then removes startup, stops processes, and renames every folder to `*.removing-xxxxxxxx` before deleting (a file in use stops it with all moves undone). It removes the Apps entry and its own folder last. `Remove-InterruptedLeftovers` clears staging and renamed folders left by an interrupted run. The tray and Settings → Apps open the same uninstaller windows (`-Gui`): confirmation, a progress window in its own process (it outlives the service), and a summary. `uninstall.cmd` runs the same steps in the console.
 - `npm start` runs the service in the foreground from this folder (quit any installed copy first; only one runs per user).
 - `node scripts/compare-normalizer.cjs --diff` compares the normaliser with the NeMo reference cases.
 - Speech settings are built in. An optional `"speech"` object in `settings.json` overrides them: `ttsThreads` (default 6) and `modelRoot` (relative to this folder; default `assets/models`).

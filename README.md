@@ -1,4 +1,4 @@
-# Local Voice
+# Confab
 
 Local, offline dictation for Windows, with spoken replies from your coding agent when you ask for them.
 
@@ -16,7 +16,7 @@ Works with Claude Code, Codex, Cursor, Antigravity and other agents with lifecyc
 
 Nothing else: setup brings its own copy of Node.js. You don't need administrator rights, and setup changes no Windows security or firewall settings.
 
-**Smart App Control.** Local Voice is not code-signed yet. On PCs where Windows' Smart App Control is turned on (Windows Security → App & browser control), Windows decides by reputation whether to let unsigned program files run, and it may block one of the speech engine's files. If that happens, the tray menu → **Diagnose…** names the blocked file. Local Voice never changes this setting for you.
+**Smart App Control.** Confab is not code-signed yet. On PCs where Windows' Smart App Control is turned on (Windows Security → App & browser control), Windows decides by reputation whether to let unsigned program files run, and it may block one of the speech engine's files. If that happens, the tray menu → **Diagnose…** names the blocked file. Confab never changes this setting for you.
 
 ## Install
 
@@ -30,18 +30,18 @@ Nothing else: setup brings its own copy of Node.js. You don't need administrator
 Setup takes a few minutes. It:
 
 - checks the PC and says plainly if something is missing;
-- installs an official, signed Node.js for Local Voice's own use;
+- installs an official, signed Node.js for Confab's own use;
 - downloads the speech models (about 1 GB) from their official sources and checks every file against the SHA-256 checksums in [`assets/live-models.json`](assets/live-models.json). If the download is interrupted, run `.\setup.cmd` again and it carries on where it stopped;
-- installs Local Voice into `%LOCALAPPDATA%\LocalVoice`, starts it, and starts it at every sign-in. **Local Voice** appears in the Start menu and in **Settings → Apps**;
+- installs Confab into `%LOCALAPPDATA%\Confab`, starts it, and starts it at every sign-in. **Confab** appears in the Start menu and in **Settings → Apps**;
 - finds the coding agents on the PC and offers to connect each one.
 
-If you start setup from a terminal inside another app (for example a coding agent's built-in terminal), it may continue in a new PowerShell window: some apps give their terminal a private copy of AppData, and Local Voice installed there could not start with Windows. The new window installs it normally. Its log is `%TEMP%\local-voice-setup.log`.
+If you start setup from a terminal inside another app (for example a coding agent's built-in terminal), it may continue in a new PowerShell window: some apps give their terminal a private copy of AppData, and Confab installed there could not start with Windows. The new window installs it normally. Its log is `%TEMP%\confab-setup.log`.
 
 After setup you can delete the downloaded folder. Running setup again is safe: it repairs or updates the installation and never duplicates anything.
 
-If setup stops partway (a lost connection, a closed window, a full disk), nothing is left half-updated. Each part (the uninstaller, Node.js, the app, its libraries) is prepared beside the installation and swapped in whole, so it is either as it was or completely new. Until setup finishes, Local Voice does not start; at sign-in it says that setup did not finish. Run `.\setup.cmd` again to complete it, or uninstall it: the uninstaller and its **Settings → Apps** entry are put in place first, so even an unfinished installation can be removed.
+If setup stops partway (a lost connection, a closed window, a full disk), nothing is left half-updated. Each part (the uninstaller, Node.js, the app, its libraries) is prepared beside the installation and swapped in whole, so it is either as it was or completely new. Until setup finishes, Confab does not start; at sign-in it says that setup did not finish. Run `.\setup.cmd` again to complete it, or uninstall it: the uninstaller and its **Settings → Apps** entry are put in place first, so even an unfinished installation can be removed.
 
-A Local Voice icon appears in the taskbar tray. Windows may put it under the **^** arrow; you can drag it onto the taskbar.
+A Confab icon appears in the taskbar tray. Windows may put it under the **^** arrow; you can drag it onto the taskbar.
 
 ## Use
 
@@ -58,19 +58,19 @@ Click into any text box, in any app, then:
 - The first dictation after start-up, or after 15 idle minutes, takes longer while the models load.
 - Only the opening of a reply is read: its first paragraph, up to 3 sentences. Code, file paths, links and JSON are never read out.
 
-**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Local Voice…** and **Quit Local Voice**. After quitting, start it again from **Start → Local Voice**.
+**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.
 
 ### Terminals
 
-Local Voice does not type into terminal windows. In Windows Terminal, PowerShell and Command Prompt windows, the dictated text is copied to the clipboard instead, with a notification; check it and paste it with **Ctrl+V**. This applies to agents that run there too, such as the Claude Code, Codex or Gemini CLI. Dictation never lands in a shell command or an agent's terminal prompt by surprise.
+Confab does not type into terminal windows. In Windows Terminal, PowerShell and Command Prompt windows, the dictated text is copied to the clipboard instead, with a notification; check it and paste it with **Ctrl+V**. This applies to agents that run there too, such as the Claude Code, Codex or Gemini CLI. Dictation never lands in a shell command or an agent's terminal prompt by surprise.
 
-The terminal panels inside VS Code and Cursor are different: Local Voice pastes there directly, so dictating to an agent CLI in those panels works like any other box. The text is never sent with Enter. Those panels don't let Local Voice read their text back to confirm the paste, so it keeps the text on the clipboard as a backup; if the badge says **Pasted** but nothing arrived, press **Ctrl+V**.
+The terminal panels inside VS Code and Cursor are different: Confab pastes there directly, so dictating to an agent CLI in those panels works like any other box. The text is never sent with Enter. Those panels don't let Confab read their text back to confirm the paste, so it keeps the text on the clipboard as a backup; if the badge says **Pasted** but nothing arrived, press **Ctrl+V**.
 
 To dictate to an agent, use its app or its chat panel in the editor (the Claude app, the Codex app, Cursor's or VS Code's agent panel). Dictation pastes there directly.
 
 ## Connect your agents
 
-Dictation works in every app with no setup. Talk-back needs a small hook in each agent, so that Local Voice can see which message was dictated and what the reply was.
+Dictation works in every app with no setup. Talk-back needs a small hook in each agent, so that Confab can see which message was dictated and what the reply was.
 
 Open the tray menu → **Connect agents…**. The window lists the supported agents and shows each one as:
 
@@ -79,7 +79,7 @@ Open the tray menu → **Connect agents…**. The window lists the supported age
 - **Connected – needs restart**: the agent was already running when you connected it. Restart it as the window says.
 - **Needs action**: something to do in the agent itself, spelled out in the window. Codex, for example, runs a new hook only after you trust it: in the Codex app or VS Code extension, open **Settings → Hooks** and click **Trust all**; in the Codex CLI, type `/hooks` and press `t`.
 
-Connecting changes only Local Voice's own entries, keeps a backup of the agent's file, and never needs the agent to be reinstalled or updated. See [Supported agents](docs/SUPPORTED_AGENTS.md) for what each agent supports.
+Connecting changes only Confab's own entries, keeps a backup of the agent's file, and never needs the agent to be reinstalled or updated. See [Supported agents](docs/SUPPORTED_AGENTS.md) for what each agent supports.
 
 Your own agent can use talk-back too, with the small Python or Node client described in the [developer guide](docs/DEVELOPER_GUIDE.md#custom-agents).
 
@@ -87,25 +87,25 @@ Your own agent can use talk-back too, with the small Python or Node client descr
 
 Any of these does the same:
 
-- Tray menu → **Uninstall Local Voice…**
-- **Settings → Apps → Installed apps → Local Voice → Uninstall**
+- Tray menu → **Uninstall Confab…**
+- **Settings → Apps → Installed apps → Confab → Uninstall**
 - In PowerShell:
   ```powershell
-  powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\LocalVoice\uninstaller\uninstall.ps1"
+  powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\Confab\uninstaller\uninstall.ps1"
   ```
 
-It asks whether to keep the downloaded speech models (to reinstall later without downloading them again) or delete them, then shows its progress and a summary. It removes the hook in every agent it connected, restoring each agent's settings; the background service, its sign-in entry, the Start menu and Settings entries; and the app, its Node.js and your Local Voice settings.
+It asks whether to keep the downloaded speech models (to reinstall later without downloading them again) or delete them, then shows its progress and a summary. It removes the hook in every agent it connected, restoring each agent's settings; the background service, its sign-in entry, the Start menu and Settings entries; and the app, its Node.js and your Confab settings.
 
-It works in an order that never leaves Local Voice half-removed:
+It works in an order that never leaves Confab half-removed:
 
-- It first checks, changing nothing, that every agent's settings file can be restored. If one cannot (it is open in another program or is not valid), it stops and says which file, and Local Voice stays installed and working.
+- It first checks, changing nothing, that every agent's settings file can be restored. If one cannot (it is open in another program or is not valid), it stops and says which file, and Confab stays installed and working.
 - Agents are disconnected before anything else is removed.
 - Before deleting any file it moves every folder aside, which fails if a file is in use. Then it puts everything back and says which folder is in use; nothing has been deleted.
-- The **Settings → Apps** entry and the uninstaller itself are removed last. If an uninstall stops for any reason, Local Voice no longer starts, and **Settings → Apps → Local Voice → Uninstall** finishes the job.
+- The **Settings → Apps** entry and the uninstaller itself are removed last. If an uninstall stops for any reason, Confab no longer starts, and **Settings → Apps → Confab → Uninstall** finishes the job.
 
 ## Settings
 
-Settings live in `%LOCALAPPDATA%\LocalVoice\resident\settings.json`. The tray writes some of them. To edit the file, quit Local Voice first.
+Settings live in `%LOCALAPPDATA%\Confab\resident\settings.json`. The tray writes some of them. To edit the file, quit Confab first.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -126,20 +126,20 @@ The `vad` values tune the speech detector (Silero VAD). Leave them alone unless 
 | `preSpeechSeconds` | `0.75` | 0–2 | the first word of a dictation is cut off | (rarely needed) a noise just before you speak is transcribed |
 | `minSilenceSeconds` | `0.5` | 0.1–2 | words around short pauses are dropped or garbled | (rarely needed) |
 
-A pause only ends your dictation's current sentence group after about 2 seconds, whatever `minSilenceSeconds` is, and pressing the hotkey again always ends the recording. Quit Local Voice before editing `settings.json`, then start it again.
+A pause only ends your dictation's current sentence group after about 2 seconds, whatever `minSilenceSeconds` is, and pressing the hotkey again always ends the recording. Quit Confab before editing `settings.json`, then start it again.
 
 ## Troubleshooting
 
 Start with the tray menu → **Diagnose…**. It checks the speech models, the speech engine, the background service, the hotkeys and each connected agent's hook, and says in plain words what is wrong and what to do.
 
-- **No tray icon:** start Local Voice from **Start → Local Voice**. If it still doesn't appear, run setup again (`& "$env:LOCALAPPDATA\LocalVoice\app\setup.cmd"`); it repairs the installation.
-- **Nothing happens on a hotkey:** hotkeys may be paused (tray menu), or another program holds the shortcut. Local Voice names it in a notification and takes the key back when it is free.
+- **No tray icon:** start Confab from **Start → Confab**. If it still doesn't appear, run setup again (`& "$env:LOCALAPPDATA\Confab\app\setup.cmd"`); it repairs the installation.
+- **Nothing happens on a hotkey:** hotkeys may be paused (tray menu), or another program holds the shortcut. Confab names it in a notification and takes the key back when it is free.
 - **"Failed" badge:** the notification says why, for example an unavailable microphone.
-- **Dictation in a terminal went to the clipboard:** that is by design; Local Voice does not type into terminal windows (see [Terminals](#terminals)). Paste it with Ctrl+V, or dictate into the agent's app or chat panel.
+- **Dictation in a terminal went to the clipboard:** that is by design; Confab does not type into terminal windows (see [Terminals](#terminals)). Paste it with Ctrl+V, or dictate into the agent's app or chat panel.
 - **A reply was not read:** it is read only if you dictated the message with Ctrl+Shift+7 and the agent is **Connected** in **Connect agents…**. An agent that shows **needs restart** or **needs action** isn't running the hook yet.
-- **Connected, but the agent never calls Local Voice** (Diagnose shows "No hook call recorded yet"): the agent may still be running without its hooks loaded, for example right after it updated itself. Quit and reopen the agent. In Codex, **Settings → Hooks** should then list three Local Voice hooks.
+- **Connected, but the agent never calls Confab** (Diagnose shows "No hook call recorded yet"): the agent may still be running without its hooks loaded, for example right after it updated itself. Quit and reopen the agent. In Codex, **Settings → Hooks** should then list three Confab hooks.
 - **Setup stopped:** it says why. Fix that and run it again; it carries on where it stopped.
-- **Logs:** `%LOCALAPPDATA%\LocalVoice\resident` holds `requests.jsonl` (each talk-back decision), `hooks.jsonl` (each hook call) and `resident-error.log`. They never contain your prompts or replies.
+- **Logs:** `%LOCALAPPDATA%\Confab\resident` holds `requests.jsonl` (each talk-back decision), `hooks.jsonl` (each hook call) and `resident-error.log`. They never contain your prompts or replies.
 
 ## For developers
 
@@ -147,4 +147,4 @@ To run from a checkout instead of installing: `npm install`, then `npm start`. `
 
 ## Licence
 
-The Local Voice code in this repository is not yet published under an open-source licence. The speech models and libraries it uses keep their own licences; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+The Confab code in this repository is not yet published under an open-source licence. The speech models and libraries it uses keep their own licences; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

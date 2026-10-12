@@ -10,8 +10,8 @@
   ],
   "install": {
     "plugin": {
-      "marketplace": "local-voice-local",
-      "name": "local-voice",
+      "marketplace": "confab-local",
+      "name": "confab",
       "path": "src/adapters/claude-code"
     }
   },

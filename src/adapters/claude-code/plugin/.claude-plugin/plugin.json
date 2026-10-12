@@ -1,5 +1,5 @@
 {
-  "name": "local-voice",
+  "name": "confab",
   "version": "0.8.0",
-  "description": "Local Voice read-aloud hooks for Claude Code."
+  "description": "Confab read-aloud hooks for Claude Code."
 }
