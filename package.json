@@ -3,7 +3,7 @@
   "version": "0.8.0",
   "private": true,
   "description": "Local, offline dictation and talk-back read-aloud for Windows, with hooks for coding agents.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "engines": {
     "node": ">=22"
   },

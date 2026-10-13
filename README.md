@@ -147,4 +147,4 @@ To run from a checkout instead of installing: `npm install`, then `npm start`. `
 
 ## Licence
 
-The Confab code in this repository is not yet published under an open-source licence. The speech models and libraries it uses keep their own licences; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Confab's own code is released under the [MIT licence](LICENSE): free to use, change and share, with no warranty. The speech models and libraries it uses are not part of this licence; they keep their own, listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Setup downloads the models from their publishers, and they are not stored in this repository.
