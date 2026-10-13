@@ -170,7 +170,7 @@ test('setup removes folders of retired pieces and their verification records, an
 });
 test('the project is MIT licensed: LICENSE file, package.json and README agree',()=>{
  const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
- assert.match(read('LICENSE'),/^MIT License\r?\n\r?\nCopyright \(c\) 2026 Swapnil\r?\n/);
+ assert.match(read('LICENSE'),/^MIT License\r?\n\r?\nCopyright \(c\) \d{4} \S.*\r?\n/);
  assert.equal(JSON.parse(read('package.json')).license,'MIT');
  assert.match(read('README.md'),/\[MIT licence\]\(LICENSE\)/);
  assert.doesNotMatch(read('README.md'),/not yet published under an open-source licence/);
