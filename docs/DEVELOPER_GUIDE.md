@@ -81,7 +81,7 @@ def handle_message(message: str, conversation_id: str) -> str:
 **Node** ([`src/pc/client.cjs`](../src/pc/client.cjs), Node built-ins only):
 
 ```js
-const {turn,speak}=require('./confab-client.cjs');
+const {turn,speak}=require('./client.cjs');
 const t=await turn(message,{agent:'my-agent',sessionId:conversationId});
 const answer=await runAgent(message);
 await speak(answer,{agent:'my-agent',sessionId:conversationId,turnId:t.turnId});
