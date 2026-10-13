@@ -117,7 +117,7 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
    if(req.method!=='POST'||req.url!=='/event'){respond(res,404,{accepted:false,reason:'not_found'},{route});return;}
    const meta={route};
    try{
-    let body='';for await(const chunk of req){body+=chunk;if(body.length>262144)throw invalid('too_large');}let data;try{data=JSON.parse(body);}catch{throw invalid('invalid_json');}
+    let body='';for await(const chunk of req){body+=chunk;if(body.length>262144)throw invalid('too_large');}let data;try{data=JSON.parse(body.replace(/^\uFEFF/,''));/* Windows PowerShell adds a byte-order mark when $OutputEncoding is UTF-8 */}catch{throw invalid('invalid_json');}
     if(!data||typeof data!=='object'||typeof data.agent!=='string'||!data.agent||data.agent.length>100||typeof data.sessionId!=='string'||data.sessionId.length>200)throw invalid('invalid_identity');
     meta.agent=data.agent;meta.session=data.sessionId;meta.event=typeof data.event==='string'?data.event.slice(0,20):null;
     // 'prompt' is the previous name of 'turn' (no text, so it never matches a talk-back).

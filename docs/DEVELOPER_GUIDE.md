@@ -161,10 +161,10 @@ Every response is JSON: `{"accepted": <bool>, "reason": "<code>"}`. Some also ca
 | 200 | false | `paused` | The user paused Confab in the tray. Turns are not matched while paused. |
 | 200 | false | `queue_full` | 100 replies are already waiting. |
 | 200 | true | `recorded` | `detach` was applied. |
-| 200 | true | `discarded` | `reply-end` with a status other than `completed`; `detail` is the status. |
-| 200 | true | `no_candidate` | `reply-end` with no candidate yet. A candidate within 2 s still counts as the final reply. |
-| 400 | false | `missing_id` | `reply` without `id`. |
-| 400 | false | `invalid_id` / `invalid_turn_id` | `id` or `turnId` is not a non-empty string of at most 200 characters. |
+| 200 | true | `discarded` | `reply-end` with a status other than `completed`, when a candidate is waiting; `detail` is the status. |
+| 200 | true | `no_candidate` | `reply-end` with no candidate yet, whatever its status. A candidate within 2 s still counts as the final reply. |
+| 400 | false | `missing_id` | `reply` without `id`, or with an empty one. |
+| 400 | false | `invalid_id` / `invalid_turn_id` | `id` or `turnId` is not a non-empty string of at most 200 characters (an empty `id` is `missing_id`). |
 | 400 | false | `invalid_text` | `text` is the wrong type or longer than 60,000 characters. |
 | 400 | false | `invalid_identity` | `agent` or `sessionId` is missing, the wrong type or too long. |
 | 400 | false | `unknown_event` | `event` is not a supported value. |

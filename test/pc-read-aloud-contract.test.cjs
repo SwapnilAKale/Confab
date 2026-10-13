@@ -26,6 +26,8 @@ test('endpoint requires id, explains every rejection, and logs without text',{sk
  assert.deepEqual(await post({event:'reply',text:secret,agent:'custom-agent',sessionId:'s'}),{status:400,accepted:false,reason:'missing_id'});
  assert.deepEqual(await post({event:'reply',text:secret,agent:'custom-agent',sessionId:'s'}),{status:400,accepted:false,reason:'missing_id'},'a missing id never turns into a later duplicate');
  assert.equal((await post('not json')).reason,'invalid_json');
+ // Windows PowerShell with $OutputEncoding = UTF-8 pipes a byte-order mark before the JSON; that must not reject the call.
+ assert.deepEqual(await post('\uFEFF'+JSON.stringify({event:'turn',text:'x',agent:'bom-agent',sessionId:'s'})),{status:200,accepted:true,reason:'no_match'});
  assert.equal((await post({event:'reply',text:'Hi.',id:'1',sessionId:'s'})).reason,'invalid_identity');
  assert.equal((await post({event:'shout',agent:'a',sessionId:'s'})).reason,'unknown_event');
  assert.equal((await post({event:'reply',text:7,id:'1',agent:'a',sessionId:'s'})).reason,'invalid_text');
