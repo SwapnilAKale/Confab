@@ -3,7 +3,7 @@
 For anyone connecting an agent to Confab, adding support for a new agent, or working on Confab itself.
 
 - [How it fits together](#how-it-fits-together)
-- [Custom agents](#custom-agents): read your own agent's replies aloud
+- [Custom agents](CUSTOM_AGENTS.md): read your own agent's replies aloud (its own page)
 - [Adding an agent](#adding-an-agent) with lifecycle hooks
 - [Hotkeys](#hotkeys)
 - [What is spoken](#what-is-spoken) and [Pronunciation](#pronunciation)
@@ -28,197 +28,7 @@ For anyone connecting an agent to Confab, adding support for a new agent, or wor
 
 ## Custom agents
 
-Any agent with a backend can have its replies spoken. You don't need to read Confab's source code.
-
-### How talk-back works
-
-| Hotkey | Action |
-|---|---|
-| Ctrl+Shift+8 | **Plain dictation.** Pastes the text into the focused box. Never causes speech. |
-| Ctrl+Shift+7 | **Talk-back dictation.** Pastes the text, and marks the turn it becomes for one spoken reply. |
-| Ctrl+Shift+6 | **Cancel.** Cancels the pending talk-back, stops playback and clears queued speech. |
-
-The service keeps the last talk-back draft in memory until it is used or cancelled. Your agent reports each user message as a **turn**. If the message matches the draft, that turn owns the talk-back, and **its one reply** is spoken. Every other reply is silent: plain dictation, typed messages, later replies, background wake-ups.
-
-- Only one turn on the whole PC owns a talk-back at a time. A newer talk-back anywhere silences an older pending one, and Cancel clears it.
-- A pending draft or turn has no short expiry, so an agent can report a turn when a long task ends. It is cleared by its reply, by Cancel, by a newer talk-back, or after a 2-hour safety cap (`talkbackCapMs` in `settings.json`, 10 minutes to 24 hours). The cap clearing one is logged.
-- Your agent never needs to know which hotkey was used. It reports turns and replies, and the service decides.
-- The tray has two modes: **Talk-back only** (default) and **Off**.
-- **An agent that does not send turn events is never spoken.** There is no mode that speaks every reply.
-
-### Integration point: your backend, on every turn
-
-Make two HTTP calls from your agent's **backend process**:
-
-1. **When a user message arrives**, send a `turn` event with the message text and a turn ID.
-2. **After the final public answer for that message**, send a `reply` event with the same turn ID.
-
-Do this for every message, however it arrived. Dictation pastes text into whatever box has focus, so dictated text reaches your backend through your own UI, exactly like typed text. Confab never sees the message unless your backend reports it. That is why the service matches the turn text.
-
-Send only the public final answer as the reply: never chain of thought, scratchpad, tool payloads or partial streaming output.
-
-### Clients
-
-Two single-file clients do the discovery, headers and timeouts for you. Copy one into your project. An installed Confab has them in `%LOCALAPPDATA%\Confab\app\src\pc\` (`confab.py` and `client.cjs`). Your agent needs no connecting in the tray: the clients find the running service by themselves.
-
-**Python** ([`src/pc/confab.py`](../src/pc/confab.py), standard library only, Python 3.8+):
-
-```python
-from confab import turn, speak
-
-def handle_message(message: str, conversation_id: str) -> str:
-    t = turn(message, agent="my-agent", session_id=conversation_id)      # as the message arrives
-    answer = run_agent(message)                                           # your agent
-    result = speak(answer, agent="my-agent", session_id=conversation_id, turn_id=t["turnId"])
-    log.debug("Confab: turn=%s reply=%s", t["reason"], result["reason"])   # development visibility
-    return answer
-```
-
-- `turn(text, *, agent, session_id, turn_id=None, ...)` generates a turn ID when you don't pass one, and returns it as `"turnId"`.
-- `speak(text, *, agent, session_id, turn_id=None, id=None, profile=None, timeout=0.25)` generates the reply `id`.
-- Both return the service's result plus `status`, and never raise. `status()` wraps `GET /health`.
-
-**Node** ([`src/pc/client.cjs`](../src/pc/client.cjs), Node built-ins only):
-
-```js
-const {turn,speak}=require('./client.cjs');
-const t=await turn(message,{agent:'my-agent',sessionId:conversationId});
-const answer=await runAgent(message);
-await speak(answer,{agent:'my-agent',sessionId:conversationId,turnId:t.turnId});
-```
-
-### Discovery
-
-Both files live in the per-user profile folder:
-
-```text
-%LOCALAPPDATA%\Confab\resident\
-  endpoint.json   {"pid": 1234, "port": 52151, "version": "0.8.0"}   (written while the service runs)
-  auth.json       {"token": "<64 lowercase hex characters>"}          (created at install; never changes)
-```
-
-- Read both files **per call**, or re-read after any failure. The port is chosen at each start.
-- If either file is missing or unreadable, the service is not installed or not running. Skip the call silently.
-- The folder is readable only by the current Windows user. Never copy the token into source, config files, logs, prompts or a browser.
-
-### HTTP contract
-
-```text
-POST http://127.0.0.1:<port>/event
-```
-
-| Header | Value |
-|---|---|
-| `Authorization` | `Bearer <token from auth.json>` |
-| `Host` | exactly `127.0.0.1:<port>`. `localhost:<port>` is rejected. |
-| `Content-Type` | `application/json` |
-| `Origin` | **must be absent**. Any `Origin` or `Sec-Fetch-*` header is rejected, and so is any `OPTIONS` request. |
-
-Every body (a JSON object, at most 256 KiB) has:
-
-| Field | Required | Meaning |
-|---|---|---|
-| `event` | yes | `"turn"`, `"reply"`, `"reply-end"` or `"detach"` |
-| `agent` | yes | Your agent's name, 1–100 characters, for example `"my-agent"`. |
-| `sessionId` | yes | Your conversation ID, at most 200 characters (`"default"` is fine). |
-
-**`turn`**, when a user message reaches the backend:
-
-| Field | Required | Meaning |
-|---|---|---|
-| `text` | yes, for matching | The user's message exactly as received, at most 60,000 characters. It is compared with the talk-back draft in memory, then discarded. It is never logged or stored. |
-| `turnId` | recommended | A unique ID for this message (a UUID), at most 200 characters. Without one, ownership is per `agent` + `sessionId`, so the session's next reply is the one spoken. |
-
-**`reply`**, with the final public answer:
-
-| Field | Required | Meaning |
-|---|---|---|
-| `text` | yes | The final public answer, at most 60,000 characters. |
-| `id` | **yes** | A unique ID for this reply (a UUID), at most 200 characters. A retry with the same `id` is ignored as a duplicate. A missing `id` returns 400 `missing_id`. |
-| `turnId` | yes, if you sent one with the turn | The `turnId` of the message this answers. A reply with a different or missing `turnId` does not use that turn's talk-back. |
-
-**Agents that report every assistant message** (in-between ones included): send each as a `reply` with `"final": false`. The service keeps only the latest one per `sessionId` and `turnId`. When the turn ends, send `{"event": "reply-end", "turnId": ..., "status": "completed"}`. The last candidate is then judged like a normal reply. A status other than `completed` discards it. A candidate that is never ended is dropped after 30 minutes.
-
-**`detach`**, optional: send when a conversation closes. It drops any pending talk-back held by that session.
-
-`GET /health` (same headers, no body) returns the service state, the mode, request counters and the last rejected request. `GET /requests` returns the last 100 log entries.
-
-### Responses
-
-Every response is JSON: `{"accepted": <bool>, "reason": "<code>"}`. Some also carry a `detail`.
-
-| Status | `accepted` | `reason` | Meaning |
-|---|---|---|---|
-| 200 | true | `match` | `turn`: this message matched the talk-back draft. Its reply will be spoken. |
-| 200 | true | `no_match` | `turn`: no talk-back for this message. Its reply will be silent. |
-| 202 | true | `queued` | `reply`: will be spoken after any earlier replies. Nothing waits for the speech. |
-| 202 | true | `held` | `reply`: no turn owns the talk-back yet, but a talk-back draft is waiting. The reply is held for up to 2 s in case its turn arrives late. Logged as `held_released` (spoken if the late turn matched) or `held_expired`. |
-| 202 | true | `candidate` | `reply` with `final: false`: kept until `reply-end`. |
-| 200 | false | `not_talkback` | `reply`: this reply's turn does not own the talk-back. |
-| 200 | false | `disabled` | `reply`: the tray mode is *Off*. |
-| 200 | false | `duplicate` | `reply`: this `id` was already received for this `agent` + `sessionId`. |
-| 200 | false | `display_only` | `reply`: nothing in it can be spoken. `detail` is `code`, `diff`, `path`, `url`, `json`, `too_long` or `empty`. See [What is spoken](#what-is-spoken). |
-| 200 | false | `paused` | The user paused Confab in the tray. Turns are not matched while paused. |
-| 200 | false | `queue_full` | 100 replies are already waiting. |
-| 200 | true | `recorded` | `detach` was applied. |
-| 200 | true | `discarded` | `reply-end` with a status other than `completed`, when a candidate is waiting; `detail` is the status. |
-| 200 | true | `no_candidate` | `reply-end` with no candidate yet, whatever its status. A candidate within 2 s still counts as the final reply. |
-| 400 | false | `missing_id` | `reply` without `id`, or with an empty one. |
-| 400 | false | `invalid_id` / `invalid_turn_id` | `id` or `turnId` is not a non-empty string of at most 200 characters (an empty `id` is `missing_id`). |
-| 400 | false | `invalid_text` | `text` is the wrong type or longer than 60,000 characters. |
-| 400 | false | `invalid_identity` | `agent` or `sessionId` is missing, the wrong type or too long. |
-| 400 | false | `unknown_event` | `event` is not a supported value. |
-| 400 | false | `invalid_json` / `too_large` | The body is not JSON, or exceeds 256 KiB. |
-| 403 | false | `browser_request` | An `Origin` or `Sec-Fetch-*` header was present, or the method was `OPTIONS`. |
-| 403 | false | `bad_host` | The `Host` header is not exactly `127.0.0.1:<port>`. |
-| 403 | false | `unauthorized` | The bearer token is missing or wrong. Re-read `auth.json`. |
-| 404 | false | `not_found` | Wrong method or route. |
-
-The clients also return `{"accepted": false, "reason": "unavailable"}` without contacting the service when it isn't running, or when the request times out or fails.
-
-### Fire and forget, but log while developing
-
-- Use a short timeout. The clients default to **250 ms**. Never let these calls delay or fail your agent.
-- Never retry in a loop. If you retry a reply once, reuse its `id`.
-- Don't block on speech: 202 means queued, not spoken.
-- **Log every result while developing** (`reason`, `detail`, status), so "silent" means silent to your user, not invisible to you.
-- **Never call from a browser.** A web page can't hold the token without exposing it, and browsers always send an `Origin` header, which the service rejects.
-
-### Matching
-
-Both texts are lowercased, `<pasted_content>` wrappers are removed, and every run of punctuation or whitespace becomes one space. The turn matches when either:
-- character similarity, 1 − (Levenshtein distance ÷ length of the longer text), is at least **0.75**, or
-- the message contains the whole draft, and the draft is at least 60% of the message.
-
-Editing a few words before sending still matches. A short message that only shares a prefix, or a long message where the draft is a small part, does not. A matched draft is consumed, so it cannot match a second conversation.
-
-### Observability
-
-`GET /health` includes `readMode`, `talkback` (`none`; `dictation` while a draft waits; `turn` while a matched turn awaits its reply), the request counters and `lastRejected`.
-
-The service appends one JSON line per request to `requests.jsonl` in the profile folder (moved to `requests.1.jsonl` at 256 KiB). Entries hold only `at`, `route`, `event`, `agent`, `session`, `turn`, `status`, `accepted`, `reason`, `detail` and `decision`. When the 2-hour cap clears a forgotten talk-back, a `{"route":"talkback","event":"cap_cleared",...}` line is written. Entries never contain prompt text, reply text, reply IDs or tokens.
-
-### Example: curl (Windows PowerShell)
-
-```powershell
-$dir = "$env:LOCALAPPDATA\Confab\resident"
-$port = (Get-Content "$dir\endpoint.json" | ConvertFrom-Json).port
-$token = (Get-Content "$dir\auth.json" | ConvertFrom-Json).token
-$turnId = [guid]::NewGuid().ToString()
-$turn = @{event='turn'; text='How should I train this week?'; turnId=$turnId; agent='my-agent'; sessionId='default'} | ConvertTo-Json -Compress
-$turn | curl.exe -s -m 1 -X POST "http://127.0.0.1:$port/event" -H "Authorization: Bearer $token" -H "Content-Type: application/json" --data-binary '@-'
-$reply = @{event='reply'; text='Do 3 sets (RPE 8) on push/pull days.'; id=[guid]::NewGuid().ToString(); turnId=$turnId; agent='my-agent'; sessionId='default'} | ConvertTo-Json -Compress
-$reply | curl.exe -s -m 1 -X POST "http://127.0.0.1:$port/event" -H "Authorization: Bearer $token" -H "Content-Type: application/json" --data-binary '@-'
-```
-
-### Checklist
-
-- [ ] `turn` is sent from the backend when each message arrives, with the message text and a turn ID.
-- [ ] `reply` is sent after the final answer, with a unique `id` and the same turn ID.
-- [ ] Port and token are read from the profile files at runtime, and never stored or logged.
-- [ ] The timeout is about 250 ms, and errors never reach the user.
-- [ ] Results are logged during development.
-- [ ] Manual test: plain dictation gives `no_match` and `not_talkback`; talk-back dictation (Ctrl+Shift+7) gives `match`, then `queued`, and is heard once.
+Connecting your own agent to talk-back is described on its own page: [Custom agents](CUSTOM_AGENTS.md).
 
 ## Adding an agent
 
@@ -260,7 +70,7 @@ Keep this table current whenever a shortcut changes. All hotkeys use `RegisterHo
 |---|---|---|
 | **Ctrl+Shift+8** | Service running, hotkeys not paused. | **Plain dictation.** First press: grey **Starting…** badge at once, playback stops and the microphone opens. When capture is live, the badge turns red (**● Dictating**) with the start beep. Audio is buffered while models load. The box focused at the press is the target; if focus leaves it, recording continues and the badge warns **⚠ Focus moved — click back to paste here**. Second press, or Ctrl+Shift+7: stops (**… Transcribing**), then pastes without Enter into the target box (**✓ Pasted**). If the box can't be proven the same: **⧉ Not pasted — copied**, the text is on the clipboard, plus a notification. Never causes a spoken reply. |
 | **Ctrl+Shift+7** | Same. | **Talk-back dictation.** Same as Ctrl+Shift+8 with a purple **◆ Talk-back** badge. The draft is kept until its reply, Cancel or a newer talk-back (2-hour cap), and the turn it becomes owns one spoken reply. The key that **starts** a recording sets its mode; either key stops it. |
-| **Ctrl+Shift+6** | Same. | **Cancel.** At any point (starting, recording, focus moved, transcribing): discards the recording, so nothing is pasted or copied. Also cancels the pending talk-back, stops playback, clears queued replies and clears the target box. Two-tone falling cue when something was cancelled; otherwise a soft tick. |
+| **Ctrl+Shift+6** | Same. | **Cancel.** At any point (starting, recording, focus moved, transcribing): discards the recording, so nothing is pasted or copied. Also cancels the pending talk-back, stops playback, clears queued replies and forgets the target box. Text already in that box is never erased: the only keystroke Confab sends to a box is the Ctrl+V of a paste. Two-tone falling cue when something was cancelled; otherwise a soft tick. |
 | Ctrl+Shift+9 | **Off by default.** Turn it on with `"hotkeys": {"arm": "Ctrl+Shift+9"}`. | **Arm text box.** Targets the focused editable box without recording. Rarely needed, because 8 and 7 target the box themselves. |
 
 Keys can be changed in `settings.json` (quit first): `"hotkeys": {"capture": "Ctrl+Shift+8", "talkback": "Ctrl+Shift+7", "disarm": "Ctrl+Shift+6", "arm": "off"}`. Use Ctrl+Shift plus a letter, number, F1–F24 or Space. If another program holds a key, the service keeps its other keys, names the missing ones in a notification, retries every 15 seconds, and lists them as `hotkeysUnavailable` in `/health`.
@@ -274,9 +84,9 @@ Keys can be changed in `settings.json` (quit first): `"hotkeys": {"capture": "Ct
 
 ## What is spoken
 
-Only the **opening** of a reply is read: the first prose paragraph, at most 3 sentences or 400 characters, stopping at the first heading, list, table, quote or code. Opening sentences that can't be spoken are dropped one by one. "Full reply on screen." is added when anything was left out, and "The reply is on screen." is said if nothing in the opening can be spoken. `spokenSentences` / `spokenChars` change the limits (0 and 0 = the full reply). Lead a reply with a short plain-language summary and it is the part that is heard. The rules are in `src/pc/reply-text.cjs`.
+Only the **opening** of a reply is read: the first prose paragraph, at most 3 sentences or 400 characters. A heading at the very start is skipped, and the opening stops at the next heading, list, table, quote or code. Opening sentences that can't be spoken are dropped one by one. "Full reply on screen." is added when anything was left out, and "The reply is on screen." is said if nothing in the opening can be spoken. `spokenSentences` / `spokenChars` change the limits (0 and 0 = the full reply). Lead a reply with a short plain-language summary and it is the part that is heard. The rules are in `src/pc/reply-text.cjs`.
 
-**Rejected entirely (`display_only`):**
+**Not spoken.** With the default limits, an opening sentence that matches one of these rules is dropped: the rest of the opening is still read, followed by "Full reply on screen.", and if nothing is left, "The reply is on screen." is said. Only when `spokenSentences` and `spokenChars` are both `0` (the full reply is read) is a reply that matches one of these rules refused as a whole, with reason `display_only` and this `detail`:
 
 | `detail` | Triggers |
 |---|---|
@@ -292,7 +102,7 @@ Only the **opening** of a reply is read: the first prose paragraph, at most 3 se
 | Input | Spoken as | Rule |
 |---|---|---|
 | `**bold**`, `*it*`, `__b__`, `_i_`, `~~s~~`, `` `Lat Pulldown` `` | `bold`, `it`, ... | Emphasis and plain-word inline code are unwrapped. `snake_case` words are untouched. |
-| `# Heading` | `Heading.` | The heading becomes its own sentence. |
+| `# Heading` | `Heading.` | When the full reply is read (`0` and `0`), or the reply is only a heading, the heading becomes its own sentence. With the default limits, a heading at the start is skipped and a later one ends the opening. |
 | `> quote`, `---` | `quote` | Blockquote markers and horizontal rules are removed. |
 | `[text](url)` | `text` | Link text only. |
 | `\| a \| b \|` | `a, b.` | Table cells become pauses. Separator rows are dropped. |

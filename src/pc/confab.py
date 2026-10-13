@@ -2,7 +2,7 @@
 
 Self-contained and dependency-free (standard library only, Python 3.8+). Copy this
 file into an agent repository. The contract is documented in
-docs/DEVELOPER_GUIDE.md of the Confab project.
+docs/CUSTOM_AGENTS.md of the Confab project.
 
     from confab import turn, speak
     t = turn(user_message, agent="my-agent", session_id=conversation_id)   # when the message arrives

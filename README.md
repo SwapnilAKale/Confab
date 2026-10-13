@@ -6,7 +6,7 @@ Local, offline dictation for Windows, with spoken replies from your coding agent
 - **Talk-back.** Dictate with the talk-back hotkey and the agent's reply to that message is read aloud. Everything else stays silent.
 - **Private.** Speech recognition and speech synthesis run on your PC. No audio or text leaves it.
 
-Works with Claude Code, Codex, Cursor, Antigravity and other agents with lifecycle hooks (see [Supported agents](docs/SUPPORTED_AGENTS.md)), and with your own agent through a small HTTP call (see the [developer guide](docs/DEVELOPER_GUIDE.md)).
+Works with Claude Code, Codex, Cursor, Antigravity and other agents with lifecycle hooks (see [Supported agents](docs/SUPPORTED_AGENTS.md)), and with your own agent through a small HTTP call (see [Custom agents](docs/CUSTOM_AGENTS.md)).
 
 ## Requirements
 
@@ -81,7 +81,7 @@ Open the tray menu → **Connect agents…**. The window lists the supported age
 
 Connecting changes only Confab's own entries, keeps a backup of the agent's file, and never needs the agent to be reinstalled or updated. See [Supported agents](docs/SUPPORTED_AGENTS.md) for what each agent supports.
 
-Your own agent can use talk-back too, with the small Python or Node client described in the [developer guide](docs/DEVELOPER_GUIDE.md#custom-agents).
+Your own agent can use talk-back too, with the small Python or Node client described in [Custom agents](docs/CUSTOM_AGENTS.md).
 
 ## Uninstall
 
