@@ -89,8 +89,13 @@ async function fetchPiece(root,piece,state,{downloads,progress,log=()=>{}}){
   if(!source)throw Error(piece.name+': no download source for '+name+'.');
   if(source.startsWith('repo:')){
    const file=path.join(root,source.slice(5));
-   if(!fs.existsSync(file)||sha256File(file)!==f.sha256)throw Error(piece.name+': '+source.slice(5)+' is missing or does not match its checksum.');
-   fs.mkdirSync(path.dirname(path.join(target,name)),{recursive:true});fs.copyFileSync(file,path.join(target,name));return;
+   // The manifest hashes the file as stored in the repository (Unix line endings). A Windows checkout can convert a
+   // text file to CRLF (Git for Windows does by default), so accept that file too and copy the original bytes.
+   const hash=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
+   let bytes=fs.existsSync(file)?fs.readFileSync(file):null;
+   if(bytes&&hash(bytes)!==f.sha256)bytes=Buffer.from(bytes.toString('latin1').replace(/\r\n/g,'\n'),'latin1');
+   if(!bytes||hash(bytes)!==f.sha256)throw Error(piece.name+': '+source.slice(5)+' is missing or does not match its checksum.');
+   fs.mkdirSync(path.dirname(path.join(target,name)),{recursive:true});fs.writeFileSync(path.join(target,name),bytes);return;
   }
   // Many small files (Kokoro has 377): one progress line for the piece, not one per file.
   await download(source,path.join(work,name),{size:f.size,sha256:f.sha256,label:many?piece.name:piece.name+': '+name,progress:many?p=>{got.set(name,p.done);progress({label:piece.name,done:sum(),total,final:false});}:progress});

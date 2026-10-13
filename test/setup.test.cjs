@@ -175,3 +175,23 @@ test('the project is MIT licensed: LICENSE file, package.json and README agree',
  assert.match(read('README.md'),/\[MIT licence\]\(LICENSE\)/);
  assert.doesNotMatch(read('README.md'),/not yet published under an open-source licence/);
 });
+test('a notice file converted to CRLF by a Windows checkout still installs, as its original bytes; other content is refused',async()=>{
+ // Regression: Git for Windows converts text files to CRLF by default, which changed the SHA-256 of the notice file
+ // that setup copies from the repository, and stopped setup at the speech models for every cloned checkout.
+ const root=scratch('crlf'),original=Buffer.from('Attribution line one.\nLine two.\n'),crlf=Buffer.from(original.toString().replace(/\n/g,'\r\n'));
+ fs.mkdirSync(path.join(root,'notes'),{recursive:true});fs.mkdirSync(path.join(root,'assets'),{recursive:true});
+ fs.writeFileSync(path.join(root,'assets','live-models.json'),JSON.stringify({pieces:[{name:'Notice only',source:'https://example.com/notice',path:'assets/models/notice',totalBytes:original.length,download:{extra:{'NOTICE.md':'repo:notes/NOTICE.md'}},files:[{path:'NOTICE.md',size:original.length,sha256:sha(original)}]}],retired:[]}));
+ const run=()=>models.ensure(root,{downloads:path.join(root,'downloads'),log:()=>{}});
+ fs.writeFileSync(path.join(root,'notes','NOTICE.md'),crlf);await run();
+ const installed=path.join(root,'assets','models','notice','NOTICE.md');
+ assert.deepEqual(fs.readFileSync(installed),original,'the original bytes are installed, so the checksum holds');
+ assert.ok(models.check(root).every(p=>p.ok),'and the installed piece verifies');
+ fs.rmSync(path.join(root,'assets','models'),{recursive:true,force:true});fs.rmSync(path.join(root,'assets','models-verified.json'),{force:true});
+ fs.writeFileSync(path.join(root,'notes','NOTICE.md'),'something else\r\n');
+ await assert.rejects(run(),/does not match its checksum/);
+});
+test('the repository keeps the checksummed notice files in Unix line endings on every checkout',()=>{
+ const attributes=fs.readFileSync(path.join(__dirname,'..','.gitattributes'),'utf8');
+ assert.match(attributes,/^assets\/notices\/\*\* text eol=lf$/m);
+ assert.match(attributes,/^\*\.cmd text eol=crlf$/m,'the launchers keep Windows line endings');
+});
