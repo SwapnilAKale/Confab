@@ -1,6 +1,6 @@
 'use strict';
 // Confab read-aloud client for Node. Self-contained: copy this one file into an
-// agent repository; it needs only Node built-ins. Contract: docs/CUSTOM_AGENTS.md.
+// agent repository; it needs only Node built-ins. Contract: docs/CUSTOM_AGENTS_REFERENCE.md.
 // No activation, spawning, model-loading waits, or agent-visible failures.
 const http=require('node:http'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
 function profileDir(){return path.join(process.env.LOCALAPPDATA||path.join(os.homedir(),'AppData','Local'),'Confab','resident');}

@@ -4,7 +4,7 @@ Confab reads a reply aloud only when its prompt was dictated with talk-back (Ctr
 
 Dictation (Ctrl+Shift+8 and 7) pastes into any focused input box, so it works with every agent's app and editor panel. Terminal windows are deliberately excluded: for an agent CLI (Claude Code, Codex, `agy`, Gemini, Continue or Cline) running in Windows Terminal, PowerShell or Command Prompt, the dictated text is copied to the clipboard instead, so it never lands in a terminal prompt unchecked. In the terminal panels of VS Code and Cursor it is pasted directly (see [Terminals](../README.md#terminals)). Talk-back still works there: dictate with Ctrl+Shift+7, paste, and send. Cancel (Ctrl+Shift+6) acts in the service, so it works everywhere too. Only talk-back depends on the hooks below.
 
-Agents with their own backend use the HTTP contract in [Custom agents](CUSTOM_AGENTS.md) instead.
+Agents with their own backend use the HTTP contract in the [Custom agents reference](CUSTOM_AGENTS_REFERENCE.md#http-api) instead.
 
 ## Supported agents
 

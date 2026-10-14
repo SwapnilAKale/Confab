@@ -1,7 +1,7 @@
 'use strict';
 // Talk-back gate: a reply is spoken only when the user turn that produced it was sent with
 // talk-back dictation. Prompt and dictation text live only in memory for matching and are
-// never logged or persisted. Contract: docs/CUSTOM_AGENTS.md.
+// never logged or persisted. Contract: docs/CUSTOM_AGENTS_REFERENCE.md.
 
 // There is deliberately no mode that speaks every reply.
 const MODES = ['talkback', 'off'];

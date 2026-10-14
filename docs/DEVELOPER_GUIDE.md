@@ -28,7 +28,7 @@ For anyone connecting an agent to Confab, adding support for a new agent, or wor
 
 ## Custom agents
 
-Connecting your own agent to talk-back is described on its own page: [Custom agents](CUSTOM_AGENTS.md).
+Connecting your own agent to talk-back is described on its own page: [Custom agents](CUSTOM_AGENTS.md), with every detail in the [Custom agents reference](CUSTOM_AGENTS_REFERENCE.md).
 
 ## Adding an agent
 
