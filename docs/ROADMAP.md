@@ -6,7 +6,6 @@
   - **Certificate:** an OV code-signing certificate (about $150–300 a year, key on a hardware token or cloud HSM, RSA). Azure Artifact Signing is open to individuals only in the USA and Canada ([code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options)).
   - **Files to sign** (unsigned today): `koffi.node` (`@koromix/koffi-win32-x64`), `sherpa-onnx.node`, `sherpa-onnx-c-api.dll`, `sherpa-onnx-cxx-api.dll`, `onnxruntime.dll` and `onnxruntime_providers_shared.dll` (all in `sherpa-onnx-win-x64`). Already signed: `node.exe` (OpenJS Foundation).
   - **Distribution:** signing changes the bytes, so the signed copies are hosted by the project, and `assets/live-models.json` records both the upstream hash and the signed hash of each file.
-- **Live tests for Cursor.** Its hook is installed and reproduced in tests, but talk-back hasn't been confirmed with a real Cursor run.
 
 ## Parked for later
 
