@@ -1,11 +1,10 @@
 'use strict';
 // Records test dictations with Confab's own microphone capture (16 kHz mono), one WAV and one .txt per prompt,
 // into test-output/my-recordings (git-ignored). A developer tool for tuning the speech detector (src/vad-settings.cjs)
-// with a real voice and microphone; see docs/DEVELOPER_GUIDE.md.
+// with a real voice and microphone, and the input of scripts/benchmark.cjs; see docs/DEVELOPER_GUIDE.md.
 // Press Enter to start a take, speak, press Enter to stop. Type "r" + Enter to redo the last one.
 const fs=require('node:fs'),path=require('node:path'),readline=require('node:readline');
-const {ThreadedAudio}=require('../src/pc/audio-threads.cjs'),{encodeFloatWave}=require('../src/wav.cjs');
-const OUT=path.join(__dirname,'..','test-output','my-recordings');fs.mkdirSync(OUT,{recursive:true});
+const OUT=path.join(__dirname,'..','test-output','my-recordings');
 // [file, what to say, how to say it]. The .txt holds the words only.
 const PROMPTS=[
  ['01-yes','Yes.','one word, normal'],
@@ -21,6 +20,10 @@ const PROMPTS=[
  ['11-fillers','So, um, rename the variable to user count, uh, everywhere.','keep the um and uh'],
  ['12-long','Refactor the parser so that it reads the whole file once, keeps the line numbers, and reports every error together at the end instead of stopping at the first one.','one long sentence, natural pace']
 ];
+module.exports={PROMPTS,OUT};
+if(require.main===module){
+const {ThreadedAudio}=require('../src/pc/audio-threads.cjs'),{encodeFloatWave}=require('../src/wav.cjs');
+fs.mkdirSync(OUT,{recursive:true});
 const rl=readline.createInterface({input:process.stdin,output:process.stdout});
 const ask=q=>new Promise(r=>rl.question(q,r));
 (async()=>{
@@ -40,3 +43,4 @@ const ask=q=>new Promise(r=>rl.question(q,r));
  }
  await audio.close();rl.close();console.log('\nDone: '+PROMPTS.length+' recordings in '+OUT);
 })().catch(e=>{console.error('Recording failed: '+e.message);process.exit(1);});
+}

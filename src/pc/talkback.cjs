@@ -12,6 +12,9 @@ const DEFAULT_CAP_MS = 2 * 60 * 60 * 1000;
 // A submitted prompt matches the talk-back draft when their normalized character similarity
 // (1 - Levenshtein distance / longer length) is at least this, or when the prompt contains the
 // whole draft and the draft is at least 60% of the prompt.
+// The threshold is a chosen value. scripts/benchmark.cjs checks its margin on the 12 test prompts: two different
+// prompts score at most 0.40, and a dictation sent with its recognition errors fixed scores at least 0.77
+// ("8000" vs "eight thousand" is the closest).
 const MATCH_THRESHOLD = 0.75;
 const CONTAINED_SHARE = 0.6;
 

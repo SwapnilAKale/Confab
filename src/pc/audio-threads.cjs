@@ -1,6 +1,8 @@
 'use strict';
-// WinMM device opens take 0.5-0.9 s on some PCs and are synchronous. Running them on the main
-// thread delayed cues, opened the microphone late and stalled the HTTP endpoint. ThreadedAudio
+// Audio device opens are slow and synchronous. Measured with scripts/benchmark.cjs --mic (29 October 2026,
+// i5-13420H): opening the microphone takes about 410 ms; on the main thread that blocks it for about 420 ms,
+// which delayed cues, opened the microphone late and stalled the HTTP endpoint. On the worker thread the
+// longest main-thread pause is about 20 ms. ThreadedAudio
 // keeps the WindowsAudio API but runs playback and capture on two worker threads, so a cue and
 // the microphone open in parallel and the main thread never blocks.
 const {Worker}=require('node:worker_threads'),{EventEmitter}=require('node:events');

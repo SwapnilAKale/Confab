@@ -182,4 +182,19 @@ npm test
 - Live models and their exact files are recorded in [`assets/live-models.json`](../assets/live-models.json). Update it when a model changes. When a piece is dropped, list its folder under `retired`: setup and uninstall delete retired folders from existing installations.
 - **Speech detector.** `src/silero-segmenter.cjs` runs Silero VAD through sherpa-onnx and only marks where speech is; `src/context-turns.cjs` decides turns (a turn ends after 2.2 s of silence, or at 24 s with 3 s of context overlap). Its three settings (`threshold`, `preSpeechSeconds`, `minSilenceSeconds`) come from the `vad` object in `settings.json` through `src/vad-settings.cjs`; the README lists them.
 - **Tuning with your own voice.** `node scripts/record-test-voice.cjs` records 12 test dictations (short phrases, pauses of 1–3 s, fast speech, a soft first word, fillers) with the product's own microphone capture into `test-output/my-recordings`, one `.wav` and one `.txt` reference each. Pause the installed service's hotkeys first. Replay them through the detector and Parakeet to compare settings before changing a default.
+- **Benchmark.** `node scripts/benchmark.cjs [--synthetic] [--mic]` measures the real dictation and read-aloud paths: it runs the service's controller and engine with recorded audio fed at real-time pace, and only the microphone, speakers and paste are stand-ins. It reports word error rate and stop-to-text time for the clips in `test-output/my-recordings` (or `--dir <folder>`), reply-to-first-audio time and real-time factor for six agent replies, the talk-back match margin, and with `--mic` the microphone open time and main-thread stall. `--synthetic` also dictates the 12 test prompts spoken by the Kokoro voice. Quit or pause the installed service, close busy programs and plug in the charger first; the script warns when the CPU is busy. Results are saved to `test-output/benchmark/`.
+
+  Results on 29 October 2026 (i5-13420H, 16 GB, on battery, CPU 8% busy at start):
+
+  | Measure | Result |
+  |---|---|
+  | Word error rate, Kokoro voice (12 prompts, 115 words) | 0.9% (1 error: "build" heard as "bill"). A pipeline check, not accuracy on human speech. |
+  | Stop press to text ready | median 581 ms, max 965 ms |
+  | Stop press to paste | median 803 ms (Confab waits at least 800 ms before pasting) |
+  | Reply received to first audio | median 1.3 s, max 3.1 s |
+  | Read-aloud real-time factor | median 0.43 (speech is made about 2.3 times faster than it plays) |
+  | Model load (first use after idle unload) | 3.3 s |
+  | Microphone open | about 410 ms; longest main-thread pause 19 ms on the worker thread vs 423 ms on the main thread |
+
+  Word error rate on human speech is not measured yet: record your voice with `record-test-voice.cjs`, then run the benchmark.
 - The service has no network access in its speech workers (`src/no-network.cjs`), binds only 127.0.0.1, and requires the bearer token on every route.
