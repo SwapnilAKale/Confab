@@ -4,12 +4,15 @@ function shortReason(message){const text=String(message||'').trim().replace(/\s+
 const crypto=require('node:crypto');
 const {spokenReply,speechUnits}=require('./reply-text.cjs'),{inferDateOrder}=require('./spoken-normalizer.cjs');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const MAX_RECORDING_MS=10*60*1000;
 // Generic native dictation. No agent-specific dependency.
 class PcController {
  // onTalkback(text): talk-back dictation produced this draft. onDisarm(): cancel the pending talk-back; returns whether one was pending.
  // spoken: how much of a reply is read aloud ({sentences, chars}; 0 and 0 = the full reply).
- constructor({engine,audio,input,notify,saveDraft,clearDraft,autoSend=false,lazy=false,onTalkback=()=>{},onDisarm=()=>false,spoken={sentences:0,chars:0}}){
-  Object.assign(this,{engine,audio,input,notify,saveDraft,clearDraft,autoSend,lazy,onTalkback,onDisarm,spoken});this.readAloud=true;this.pendingReplies=0;
+ // maxRecordingMs: a dictation still recording after this long stops with the limit cue and is pasted as usual,
+ // so a forgotten recording cannot keep the microphone open.
+ constructor({engine,audio,input,notify,saveDraft,clearDraft,autoSend=false,lazy=false,onTalkback=()=>{},onDisarm=()=>false,spoken={sentences:0,chars:0},maxRecordingMs=MAX_RECORDING_MS}){
+  Object.assign(this,{engine,audio,input,notify,saveDraft,clearDraft,autoSend,lazy,onTalkback,onDisarm,spoken,maxRecordingMs});this.readAloud=true;this.pendingReplies=0;
   this.state='loading';this.metrics={captures:0,frames:0,transcripts:0,insertions:0,fallbacks:0,replies:0,suppressed:0,played:0};this.speech=Promise.resolve();this.actions=Promise.resolve();this.generation=0;
   input.on('capture',e=>{this.actions=this.actions.then(()=>e.action==='start'?this.startCapture({talkback:e.talkback===true}):this.endCapture()).catch(e=>this.failCapture(e));});
   // Background checks of the focused box during a recording are resolved at paste time.
@@ -70,11 +73,12 @@ class PcController {
    if(this.capture!==capture)return;this.capture=null;this.state='ready';try{this.engine.cancel(capture.id);}catch{}await this.input.request('capture-reset');
    this.rejectPress('Microphone unavailable, so nothing was recorded: '+(error.message||'it could not be opened')+' Check that a microphone is connected, enabled and allowed for desktop apps.');return;
   }
-  capture.limit=setTimeout(()=>{this.actions=this.actions.then(()=>this.endCapture()).catch(e=>this.failCapture(e));},120000);
+  capture.limit=setTimeout(()=>{this.actions=this.actions.then(()=>this.endCapture({limit:true})).catch(e=>this.failCapture(e));},this.maxRecordingMs);
  }
- async endCapture(){const capture=this.capture;if(!capture||this.state!=='recording')return;
+ // limit: stopped by maxRecordingMs, not by a press; the limit cue replaces the stop cue.
+ async endCapture({limit=false}={}){const capture=this.capture;if(!capture||this.state!=='recording')return;
   clearTimeout(capture.limit);this.state='transcribing';this.endedAt=Date.now();this.refreshBadge();await Promise.resolve(this.audio.stop()).catch(()=>{});await this.input.request('capture-reset');
-  this.engine.end(capture.id);void this.audio.cue(false).catch(()=>this.failure('Recording stopped, but the speaker cue failed. Check your speakers.'));
+  this.engine.end(capture.id);void Promise.resolve().then(()=>limit?this.audio.limitCue():this.audio.cue(false)).catch(()=>this.failure('Recording stopped, but the speaker cue failed. Check your speakers.'));
   capture.deadline=setTimeout(()=>this.failCapture(Error('Transcription timed out.')),this.lazy?180000:90000);
  }
  receive(capture,event){if(this.capture!==capture||this.closed)return;

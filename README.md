@@ -56,6 +56,7 @@ Click into any text box, in any app, then:
 - A small badge near the pointer shows what is happening: Starting…, Dictating, Talk-back, Transcribing, Pasted.
 - If you click away while recording, the badge warns you. If the text can't be pasted into the same box, it is copied to the clipboard instead, and a notification tells you.
 - The first dictation after start-up, or after 15 idle minutes, takes longer while the models load.
+- A dictation can last up to 10 minutes. At 10 minutes it stops by itself with three falling tones, and what you said is pasted as usual. Press the hotkey again to continue.
 - Only the opening of a reply is read: its first paragraph, up to 3 sentences. Code, file paths, links and JSON are never read out.
 
 **Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.

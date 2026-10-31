@@ -29,6 +29,7 @@ class ThreadedAudio extends EventEmitter{
  loadingCue(){return this.playback.call('loadingCue');}
  cue(start){return this.playback.call('cue',[start]);}
  disarmCue(){return this.playback.call('disarmCue');}
+ limitCue(){return this.playback.call('limitCue');}
  tick(){return this.playback.call('tick');}
  errorCue(){return this.playback.call('errorCue');}
  stopPlayback(){this.playback.send('stopPlayback');}
@@ -48,7 +49,7 @@ if(!threads.isMainThread&&threads.workerData?.audioThread){
   stop:()=>audio.stop(),
   play:(pcm,rate)=>audio.play(Buffer.from(pcm),rate),
   playWav:wav=>audio.playWav(Buffer.from(wav)),
-  loadingCue:()=>audio.loadingCue(),cue:start=>audio.cue(start),disarmCue:()=>audio.disarmCue(),tick:()=>audio.tick(),errorCue:()=>audio.errorCue(),
+  loadingCue:()=>audio.loadingCue(),cue:start=>audio.cue(start),disarmCue:()=>audio.disarmCue(),limitCue:()=>audio.limitCue(),tick:()=>audio.tick(),errorCue:()=>audio.errorCue(),
   stopPlayback:()=>audio.stopPlayback(),
   streamOpen:(sid,rate)=>{streams.set(sid,audio.stream(rate));},
   streamWrite:(sid,pcm)=>streams.get(sid)?.write(Buffer.from(pcm)),

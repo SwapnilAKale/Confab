@@ -116,5 +116,5 @@ class WasapiAudio extends EventEmitter{
 }
 // Cue sounds are the same PCM as the WinMM implementation; they call this.play().
 const {WindowsAudio}=require('./windows-audio.cjs');
-for(const name of ['loadingCue','cue','disarmCue','tick','errorCue'])WasapiAudio.prototype[name]=WindowsAudio.prototype[name];
+for(const name of ['loadingCue','cue','disarmCue','limitCue','tick','errorCue'])WasapiAudio.prototype[name]=WindowsAudio.prototype[name];
 module.exports={WasapiAudio};

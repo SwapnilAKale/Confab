@@ -62,6 +62,8 @@ class WindowsAudio extends EventEmitter{
  cue(start){const rate=24000,pcm=Buffer.alloc(rate*.09*2);for(let i=0;i<pcm.length/2;i++)pcm.writeInt16LE(Math.round(2200*Math.sin(2*Math.PI*(start?880:440)*i/rate)*Math.sin(Math.PI*i/(pcm.length/2))),i*2);return this.play(pcm,rate);}
  // Disarm cue: two short falling tones (660 Hz then 330 Hz), distinct from the start/stop cues.
  disarmCue(){const rate=24000,n=Math.round(rate*.07),gap=Math.round(rate*.03),pcm=Buffer.alloc((n*2+gap)*2);for(const [start,freq] of [[0,660],[n+gap,330]])for(let i=0;i<n;i++)pcm.writeInt16LE(Math.round(2200*Math.sin(2*Math.PI*freq*i/rate)*Math.sin(Math.PI*i/n)),(start+i)*2);return this.play(pcm,rate);}
+ // Limit cue: three falling tones (880, 660, 440 Hz): a dictation stopped by the recording time limit.
+ limitCue(){const rate=24000,n=Math.round(rate*.08),gap=Math.round(rate*.03),pcm=Buffer.alloc((n*3+gap*2)*2);for(const [k,freq] of [[0,880],[1,660],[2,440]])for(let i=0;i<n;i++)pcm.writeInt16LE(Math.round(2200*Math.sin(2*Math.PI*freq*i/rate)*Math.sin(Math.PI*i/n)),(k*(n+gap)+i)*2);return this.play(pcm,rate);}
  // Soft single tick (1200 Hz, 40 ms): a press acknowledged with nothing else to do.
  tick(){const rate=24000,n=Math.round(rate*.04),pcm=Buffer.alloc(n*2);for(let i=0;i<n;i++)pcm.writeInt16LE(Math.round(1400*Math.sin(2*Math.PI*1200*i/rate)*Math.sin(Math.PI*i/n)),i*2);return this.play(pcm,rate);}
  // Error cue: two low buzzes (220 Hz): a press that could not be carried out.

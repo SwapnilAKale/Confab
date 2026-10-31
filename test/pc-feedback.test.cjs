@@ -33,16 +33,25 @@ test('immediate input: a box that was not editable at the start is checked again
 });
 
 // Controller: feedback within the press, badge states, discard on Disarm.
-function fixture(t,{engineState='loaded',startDelay=0,micFails=false}={}){
+function fixture(t,{engineState='loaded',startDelay=0,micFails=false,maxRecordingMs}={}){
  const input=new EventEmitter();const state={cues:[],badges:[],notices:[],clipboard:[],pastes:[],mic:false};
  Object.assign(input,{ready:Promise.resolve({}),request:async()=>{},close(){},api:{setClipboard:t=>state.clipboard.push(t)},insert:async text=>{state.pastes.push(text);return {status:'inserted'};}});
  const audio=new EventEmitter();
- for(const name of ['loadingCue','disarmCue','tick','errorCue'])audio[name]=async()=>{state.cues.push(name);};
+ for(const name of ['loadingCue','disarmCue','limitCue','tick','errorCue'])audio[name]=async()=>{state.cues.push(name);};
  Object.assign(audio,{cue:async start=>{state.cues.push(start?'start':'stop');},start(){if(micFails)throw Error('No microphone was found.');state.mic=true;},stop(){state.mic=false;},stopPlayback(){},close:async()=>{}});
  const engine=new EventEmitter();Object.assign(engine,{state:engineState,start:async(id,emit)=>{state.emit=emit;if(startDelay)await wait(startDelay);},audio(){},end(){},cancel(){state.cancelled=true;},close(){}});
- const c=new PcController({engine,audio,input,lazy:true,notify:{failure:m=>{state.notices.push(m);return true;},badge:b=>state.badges.push(b.name+(b.mode?':'+b.mode:'')),close:async()=>{}},saveDraft(){},clearDraft(){}});
+ const c=new PcController({engine,audio,input,lazy:true,notify:{failure:m=>{state.notices.push(m);return true;},badge:b=>state.badges.push(b.name+(b.mode?':'+b.mode:'')),close:async()=>{}},saveDraft(){},clearDraft(){},...(maxRecordingMs?{maxRecordingMs}:{})});
  t.after(()=>c.close());return {c,state,input,engine};
 }
+test('a dictation stops itself at the time limit with the limit cue, and what was said is pasted',async t=>{
+ const {c,state,input}=fixture(t,{maxRecordingMs:50});await c.ready();
+ input.emit('capture',{action:'start',talkback:false});await c.actions;assert.equal(state.mic,true);
+ await wait(80);await c.actions;assert.equal(state.mic,false,'microphone closed at the limit');assert.equal(c.state,'transcribing');
+ assert.deepEqual(state.cues,['start','limitCue'],'the limit cue replaces the stop cue');
+ c.endedAt=0;state.emit({type:'final',text:'Long dictation.'});state.emit({type:'capture-done'});await wait(10);
+ assert.deepEqual(state.pastes,['Long dictation.']);
+});
+test('the default recording limit is 10 minutes',()=>{assert.equal(new PcController({engine:{},audio:new EventEmitter(),input:Object.assign(new EventEmitter(),{ready:Promise.resolve({})}),notify:{}}).maxRecordingMs,600000);});
 test('first press while models load: Starting at once, recording colour and cue only when the microphone is live, no loading while recording',async t=>{
  const {c,state,input,engine}=fixture(t,{engineState:'unloaded',startDelay:200});await c.ready();
  input.emit('capture',{action:'start',talkback:false});await wait(5);
