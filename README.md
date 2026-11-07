@@ -26,6 +26,7 @@ Nothing else: setup brings its own copy of Node.js. You don't need administrator
    ```powershell
    .\setup.cmd
    ```
+   Double-clicking `setup.cmd` works too: the window then stays open at the end until you press Enter, so you can read the result.
 
 Setup takes a few minutes. It:
 

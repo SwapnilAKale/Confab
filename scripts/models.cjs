@@ -2,8 +2,10 @@
 // Download or check the speech models listed in assets/live-models.json.
 //   node scripts/models.cjs fetch          download whatever is missing or damaged, with progress; resumable
 //   node scripts/models.cjs check [--full] report each piece (--full hashes every file again)
-const path=require('node:path'),models=require('../src/setup/models.cjs');
+//   --error-file <path>                    also write a failure's message there (setup's log cannot see node's output)
+const fs=require('node:fs'),path=require('node:path'),models=require('../src/setup/models.cjs');
 const root=path.resolve(__dirname,'..'),[action,...flags]=process.argv.slice(2);
+const errorFile=flags.includes('--error-file')?flags[flags.indexOf('--error-file')+1]:null;
 const mb=n=>(n/1048576).toFixed(0);
 function progress({label,done,total,final}){
  if(total<1048576)return;// small text files: no progress line
@@ -20,4 +22,4 @@ function progress({label,done,total,final}){
   process.exitCode=result.every(p=>p.ok)?0:1;return;
  }
  console.error('Usage: node scripts/models.cjs fetch | check [--full] [--json]');process.exitCode=2;
-})().catch(e=>{if(process.stdout.isTTY)process.stdout.write('\n');console.error(e.message);process.exitCode=1;});
+})().catch(e=>{if(process.stdout.isTTY)process.stdout.write('\n');console.error(e.message);if(errorFile)try{fs.writeFileSync(errorFile,e.message);}catch{}process.exitCode=1;});

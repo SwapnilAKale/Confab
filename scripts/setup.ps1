@@ -14,18 +14,22 @@ $profileDir = Join-Path $base 'resident'
 $node = Join-Path $runtime 'node.exe'
 $system32 = Join-Path $env:SystemRoot 'System32'
 
-. (Join-Path $PSScriptRoot 'windows-shell.ps1')
-# Installed from inside a packaged app's terminal, Confab would land in that app's private AppData.
-$sandbox = Get-AppDataRedirect
-if ($sandbox) {
-    $passOn = @(); if ($Agents -ne 'ask') { $passOn = @('-Agents', $Agents) }
-    Restart-OutsideSandbox -Script $PSCommandPath -Arguments $passOn -App $sandbox
-    Write-Host ('A log of that run is written to ' + (Join-Path $env:TEMP 'confab-setup.log') + '.')
-    exit 3
+# Started by double-clicking setup.cmd, the window closes the moment setup ends, taking any error with it. Such a
+# window has only cmd.exe and this PowerShell attached; one someone typed into also has their own shell. The window
+# Restart-OutsideSandbox opens already pauses (it sets CONFAB_LAUNCHER).
+function Test-OwnWindow {
+    if ($env:CONFAB_LAUNCHER) { return $false }
+    try {
+        Add-Type -Namespace Confab -Name ConsoleWindow -MemberDefinition '[DllImport("kernel32.dll")] public static extern uint GetConsoleProcessList(uint[] list, uint count);'
+        $count = [Confab.ConsoleWindow]::GetConsoleProcessList((New-Object UInt32[] 16), 16)
+        return ($count -ge 1 -and $count -le 2)
+    } catch { return $false }
 }
-Remove-StaleLaunchers
-if (-not (Enter-SetupLock)) { Write-Host 'Confab setup or uninstall is already running in another window. Let it finish, then run setup again if needed.' -ForegroundColor Yellow; exit 4 }
-try { Start-Transcript -LiteralPath (Join-Path $env:TEMP 'confab-setup.log') -Force | Out-Null } catch { }
+$ownWindow = Test-OwnWindow
+function Close-Setup([int]$Code) {
+    if ($ownWindow) { Write-Host ''; Read-Host 'Press Enter to close this window' | Out-Null }
+    exit $Code
+}
 
 function Step($text) { Write-Host ''; Write-Host $text -ForegroundColor Cyan }
 function Ok($text) { Write-Host ('  OK  ' + $text) -ForegroundColor Green }
@@ -35,10 +39,30 @@ function Info($text) { Write-Host ('      ' + $text) }
 $script:changing = $false
 function Fail($text) {
     Write-Host ''; Write-Host ('Setup stopped: ' + $text) -ForegroundColor Red
-    if ($script:changing) { Write-Host 'Each part of Confab is either as it was or fully updated, but Confab will not start until setup has finished. Fix the problem above and run setup again; it carries on where it stopped.' }
+    if ($script:changing) {
+        Write-Host 'Run setup again to continue where it stopped.'
+        Write-Host ('To remove what it installed so far, run ' + (Join-Path $source 'uninstall.cmd')) -ForegroundColor Yellow
+    }
     else { Write-Host 'Nothing was changed. Fix the problem above and run setup again.' }
-    exit 1
+    Write-Host ('Log: ' + (Join-Path $env:TEMP 'confab-setup.log'))
+    Close-Setup 1
 }
+# Any error not handled below still ends with a message (and in the log), not a vanished window.
+trap { Fail ('unexpected error: ' + $_.Exception.Message + ' (' + [IO.Path]::GetFileName($_.InvocationInfo.ScriptName) + ' line ' + $_.InvocationInfo.ScriptLineNumber + ')') }
+
+. (Join-Path $PSScriptRoot 'windows-shell.ps1')
+# Installed from inside a packaged app's terminal, Confab would land in that app's private AppData.
+$sandbox = Get-AppDataRedirect
+if ($sandbox) {
+    $passOn = @(); if ($Agents -ne 'ask') { $passOn = @('-Agents', $Agents) }
+    Restart-OutsideSandbox -Script $PSCommandPath -Arguments $passOn -App $sandbox
+    Write-Host ('A log of that run is written to ' + (Join-Path $env:TEMP 'confab-setup.log') + '.')
+    Close-Setup 3
+}
+Remove-StaleLaunchers
+if (-not (Enter-SetupLock)) { Write-Host 'Confab setup or uninstall is already running in another window. Let it finish, then run setup again if needed.' -ForegroundColor Yellow; Close-Setup 4 }
+try { Start-Transcript -LiteralPath (Join-Path $env:TEMP 'confab-setup.log') -Force | Out-Null } catch { }
+
 $staging = Join-Path $base 'staging'
 
 Write-Host 'Confab setup' -ForegroundColor White
@@ -194,8 +218,15 @@ else {
 
 # --- 4. Speech models ---------------------------------------------------------------------------------------------
 Step '4/6  Speech models (about 1 GB on first install; checked against assets\live-models.json)'
-& $node (Join-Path $app 'scripts\models.cjs') fetch
-if ($LASTEXITCODE -ne 0) { Fail 'the speech models could not be downloaded or checked (see above). Run setup again to resume.' }
+# The log does not record what node.exe prints, so the reason for a failure comes back in a file as well.
+$modelError = Join-Path $env:TEMP 'confab-models-error.txt'
+Remove-Item -LiteralPath $modelError -Force -ErrorAction SilentlyContinue
+& $node (Join-Path $app 'scripts\models.cjs') fetch --error-file $modelError
+if ($LASTEXITCODE -ne 0) {
+    $reason = 'see above'
+    if (Test-Path -LiteralPath $modelError) { $reason = (Get-Content -LiteralPath $modelError -Raw).Trim(); Remove-Item -LiteralPath $modelError -Force -ErrorAction SilentlyContinue }
+    Fail ('the speech models could not be downloaded (' + $reason + ').')
+}
 Remove-Item -LiteralPath $downloads -Recurse -Force -ErrorAction SilentlyContinue
 
 Remove-Item -LiteralPath $staging -Recurse -Force -ErrorAction SilentlyContinue
@@ -247,3 +278,4 @@ Write-Host 'Confab is installed.' -ForegroundColor Green
 Write-Host '  Ctrl+Shift+8  dictate          Ctrl+Shift+7  dictate with talk-back          Ctrl+Shift+6  cancel'
 Write-Host '  Tray icon menu: Connect agents, Diagnose, Uninstall.'
 Write-Host '  To remove it later: tray menu > Uninstall Confab, or Settings > Apps > Installed apps > Confab > Uninstall.'
+Close-Setup 0
