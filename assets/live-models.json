@@ -1,6 +1,6 @@
 {
  "generated": "2026-10-11",
- "note": "Live speech pieces used by the PC service. Folders are git-ignored; this file records where each came from and the exact bytes in use. Setup (src/setup/models.cjs) downloads each piece from \"download\" and accepts a file only if its size and SHA-256 match the list below. Folders listed under \"retired\" belonged to earlier versions; setup and uninstall delete them.",
+ "note": "Live speech pieces used by the PC service. Folders are git-ignored; this file records where each came from and the exact bytes in use. Setup (src/setup/models.cjs) downloads each piece from \"download\" and accepts a file only if its size and SHA-256 match the list below. A \"download\" source must name a commit (a Hugging Face revision, a GitHub commit) or a file in this repository, never a release archive, branch or live web page: those can be replaced, and the pinned SHA-256 then fails every new install. \"source\" records where a piece was first published and is not downloaded. \"watch\" is where newer versions appear: scripts/check-model-updates.cjs reports what was published there after \"since\"; move \"since\" forward once those are reviewed. Folders listed under \"retired\" belonged to earlier versions; setup and uninstall delete them.",
  "pieces": [
   {
    "name": "Parakeet TDT 0.6B v2, int8 (sherpa-onnx export)",
@@ -12,22 +12,27 @@
    "license": "CC-BY-4.0",
    "totalBytes": 661471436,
    "download": {
-    "archive": {
-     "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2",
-     "size": 482468385,
-     "sha256": "157c157bc51155e03e37d2466522a3a737dd9c72bb25f36eb18912964161e1ad",
-     "folder": "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
-    },
+    "base": "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/resolve/1ab9323565ddb038682214b292f588070a538ce2/",
     "extra": {
      "ATTRIBUTION.md": "repo:assets/notices/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/ATTRIBUTION.md",
-     "LICENSE-CC-BY-4.0.txt": "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+     "LICENSE-CC-BY-4.0.txt": "repo:assets/notices/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8/LICENSE-CC-BY-4.0.txt",
      "MODEL_CARD.md": "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2/raw/ae9ad07059c7c739ffaf932226a8fe64ae2620b0/README.md"
     }
    },
+   "watch": {
+    "since": "2026-10-07",
+    "huggingface": [
+     {
+      "author": "csukuangfj",
+      "search": "parakeet"
+     }
+    ]
+   },
    "upstreamCheck": [
-    "2026-10-07: the 5 model files (encoder, decoder, joiner, tokens and test data) match the upstream archive byte for byte (archive SHA-256 above)",
+    "2026-10-07: the 5 model files (encoder, decoder, joiner, tokens and test data) matched the upstream archive at \"source\" byte for byte (archive SHA-256 157c157b...e1ad)",
+    "2026-11-07: that archive was replaced upstream with a new export (encoder, decoder and joiner differ), so setup no longer uses it. The 5 model files in use match revision 1ab9323 (2025-08-16) of csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8, the sherpa-onnx maintainer's Hugging Face copy, which setup downloads from",
     "ATTRIBUTION.md is written by this project and kept in assets/notices",
-    "LICENSE-CC-BY-4.0.txt matches https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+    "LICENSE-CC-BY-4.0.txt is https://creativecommons.org/licenses/by/4.0/legalcode.txt as of 2026-10-07, kept in assets/notices so a change to that page cannot break setup",
     "MODEL_CARD.md matches the model card (README.md) of nvidia/parakeet-tdt-0.6b-v2 at revision ae9ad07"
    ],
    "files": [
@@ -90,6 +95,10 @@
      "LICENSE": "https://raw.githubusercontent.com/snakers4/silero-vad/5cd7945676eb32225748052e2e6a0580e4686a08/LICENSE"
     }
    },
+   "watch": {
+    "since": "2026-10-11",
+    "githubReleases": "snakers4/silero-vad"
+   },
    "files": [
     {
      "path": "LICENSE",
@@ -113,6 +122,15 @@
    "totalBytes": 400786089,
    "download": {
     "base": "https://huggingface.co/csukuangfj/kokoro-multi-lang-v1_0/resolve/7e9b67b79bfdcbd2b4bc144370345fcceac3cb0c/"
+   },
+   "watch": {
+    "since": "2026-10-07",
+    "huggingface": [
+     {
+      "author": "csukuangfj",
+      "search": "kokoro"
+     }
+    ]
    },
    "upstreamCheck": [
     "2026-10-07: all 377 files match revision 7e9b67b (2025-04-20) of csukuangfj/kokoro-multi-lang-v1_0, the sherpa-onnx maintainer's Hugging Face copy, which setup downloads from",

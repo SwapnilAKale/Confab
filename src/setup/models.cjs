@@ -47,8 +47,14 @@ async function download(url,dest,{size,sha256,label=path.basename(dest),progress
     const res=await fetchImpl(url,{headers:have?{range:'bytes='+have+'-'}:{},redirect:'follow'});
     if(res.status===416&&size&&have===size){/* already complete */}
     else{
+     // A source that replaces its file (a re-uploaded release archive) is reported as that, not as a failed download:
+     // trying again cannot help, and the partial file belongs to the old one.
+     const replaced=detail=>{fs.rmSync(part,{force:true});return Object.assign(Error('the file there was replaced and no longer matches assets/live-models.json ('+detail+'). Update Confab, then run setup again.'),{fatal:true});};
+     if(res.status===416&&size)throw replaced('it is shorter than '+size+' bytes');
      if(res.status!==200&&res.status!==206)throw Error('the server answered '+res.status+' '+(res.statusText||''));
      if(res.status===200&&have){have=0;}// no resume support: start again
+     const served=Number((res.status===206?/\/(\d+)$/.exec(res.headers.get('content-range')||'')?.[1]:res.headers.get('content-length'))||0);
+     if(size&&served&&served!==size&&!res.headers.get('content-encoding'))throw replaced(served+' bytes instead of '+size);
      const total=size||have+Number(res.headers.get('content-length')||0);
      let done=have,last=0;
      const counter=new (require('node:stream').Transform)({transform(chunk,_,cb){done+=chunk.length;const now=Date.now();if(now-last>250){last=now;progress({label,done,total});}cb(null,chunk);}});

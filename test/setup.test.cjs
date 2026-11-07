@@ -12,6 +12,7 @@ async function server(files,{cutOnce=null}={}){
   const body=files[decodeURIComponent(req.url)];seen.push({url:req.url,range:req.headers.range||null});
   if(!body){res.writeHead(404).end();return;}
   const m=/bytes=(\d+)-/.exec(req.headers.range||''),start=m?Number(m[1]):0;
+  if(start>=body.length){res.writeHead(416).end();return;}
   res.writeHead(m?206:200,{'content-length':body.length-start});
   if(cut===req.url){cut=null;res.write(body.subarray(start,start+Math.floor((body.length-start)/2)),()=>setTimeout(()=>res.destroy(),50));return;}
   res.end(body.subarray(start));
@@ -32,6 +33,16 @@ test('download with a wrong checksum deletes the file and fails',async t=>{
  const dir=scratch('badsum'),body=Buffer.from('not the model'),srv=await server({'/m.onnx':body});t.after(srv.close);
  await assert.rejects(models.download(srv.url+'/m.onnx',path.join(dir,'m.onnx'),{size:body.length,sha256:'0'.repeat(64),attempts:2}),/did not match its SHA-256/);
  assert.equal(fs.existsSync(path.join(dir,'m.onnx')),false);assert.equal(fs.existsSync(path.join(dir,'m.onnx.part')),false);
+});
+test('a file replaced at its source is reported as replaced, at once, and its partial download is deleted',async t=>{
+ const dir=scratch('replaced'),old=crypto.randomBytes(1000),now=old.subarray(0,900),srv=await server({'/m.bin':now});t.after(srv.close);
+ const file=path.join(dir,'m.bin');
+ await assert.rejects(models.download(srv.url+'/m.bin',file,{size:old.length,sha256:sha(old)}),/was replaced .*\(900 bytes instead of 1000\)/);
+ assert.equal(srv.seen.length,1,'not retried');assert.equal(fs.existsSync(file+'.part'),false);
+ // A resumed download whose part is already as long as the new, shorter file: the server answers 416.
+ fs.writeFileSync(file+'.part',old.subarray(0,950));
+ await assert.rejects(models.download(srv.url+'/m.bin',file,{size:old.length,sha256:sha(old)}),/was replaced .*\(it is shorter than 1000 bytes\)/);
+ assert.equal(fs.existsSync(file+'.part'),false);
 });
 test('ensure fetches every source kind, accepts only listed bytes, and skips verified pieces on the next run',{skip:process.platform!=='win32'},async t=>{
  const root=scratch('ensure'),work=scratch('ensure-src');
@@ -72,6 +83,15 @@ test('the live model manifest names a checked download source for every file',()
   assert.ok(p.download,p.name+' has a download source');
   if(p.download.archive)assert.match(p.download.archive.sha256,/^[0-9a-f]{64}$/);
   for(const f of p.files){const extra=p.download.extra?.[f.path];assert.ok(extra||p.download.archive||p.download.base,f.path);if(extra?.startsWith('repo:')){const file=path.join(__dirname,'..',extra.slice(5));assert.equal(sha(fs.readFileSync(file)),f.sha256,extra+' matches the manifest');}}
+ }
+});
+// Every file has a pinned SHA-256, so a source whose bytes can change breaks every new install the day they do: the
+// Kokoro release archive was replaced on 2026-09-08 and the Parakeet one on 2026-11-07. Sources must name a commit.
+test('every model download source is pinned to a commit, so its bytes can never change',()=>{
+ const pinned=[/^https:\/\/huggingface\.co\/[^/]+\/[^/]+\/(resolve|raw)\/[0-9a-f]{40}\//,/^https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[0-9a-f]{40}\//,/^repo:/];
+ for(const p of models.manifest(path.join(__dirname,'..')).pieces){
+  assert.equal(p.download.archive,undefined,p.name+': release archives can be replaced upstream');
+  for(const url of [p.download.base,...Object.values(p.download.extra||{})].filter(Boolean))assert.ok(pinned.some(r=>r.test(url)),p.name+': '+url+' is not pinned to a commit');
  }
 });
 test('installed hooks run the bundled Node.js runtime when setup installed one',()=>{

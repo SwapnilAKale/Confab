@@ -1,0 +1,29 @@
+# Monthly maintenance check for newer speech models (scripts/check-model-updates.cjs). A failed run means something
+# was published that is worth trying: the run's summary lists it, and GitHub emails whoever last changed this file.
+# Nothing is updated automatically; see "Updating a model" in docs/DEVELOPER_GUIDE.md.
+name: Speech model check
+on:
+  schedule:
+    - cron: '0 6 1 * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # GitHub pauses scheduled workflows in a public repository after 60 days without a commit, and Confab can go
+      # longer than that between releases. Enabling the workflow again on every run resets that clock, no commit needed.
+      - name: Keep this schedule running
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/model-updates.yml/enable"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check for newer speech models
+        run: node scripts/check-model-updates.cjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -6,7 +6,7 @@ Confab uses the components below. Each keeps its own licence. The speech models 
 
 | Component | Use | Licence | Source |
 |---|---|---|---|
-| Parakeet TDT 0.6B v2, int8 (sherpa-onnx export) | Speech recognition | CC BY 4.0 (NVIDIA). Attribution, model card and licence are in the model folder. | Original model: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2. Conversion: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models. No fine-tuning. |
+| Parakeet TDT 0.6B v2, int8 (sherpa-onnx export) | Speech recognition | CC BY 4.0 (NVIDIA). Attribution, model card and licence are in the model folder. | Original model: https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2. Conversion: https://github.com/k2-fsa/sherpa-onnx/releases/tag/asr-models; setup downloads it from the converter's Hugging Face copy, https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8 (revision 1ab9323). No fine-tuning. |
 | Kokoro multi-lang v1.0 (sherpa-onnx export) | Speech synthesis | Apache 2.0. Its LICENSE and README are in the model folder. | Original model: https://huggingface.co/hexgrad/Kokoro-82M. Conversion: https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models; setup downloads it from the converter's Hugging Face copy, https://huggingface.co/csukuangfj/kokoro-multi-lang-v1_0 (revision 7e9b67b). |
 | eSpeak NG data (inside the Kokoro folder, `espeak-ng-data`) | Phonemization for Kokoro | GPL-3.0 | https://github.com/espeak-ng/espeak-ng |
 | Silero VAD v6.2.3 (`silero_vad.onnx`) | Speech segmenting (finding where speech starts and ends), run by sherpa-onnx | MIT, Copyright (c) 2020-present Silero Team. The licence text is in `assets/models/silero-vad/LICENSE`. | https://github.com/snakers4/silero-vad (tag v6.2.3, commit 5cd7945) |
