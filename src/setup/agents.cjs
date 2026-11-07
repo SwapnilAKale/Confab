@@ -29,7 +29,23 @@ function writeRecords(profile,records){fs.mkdirSync(profile,{recursive:true});fs
 
 // --- Claude Code --------------------------------------------------------------------------------------------
 const CLAUDE_BINARIES=['~/.local/bin/claude.exe','%APPDATA%/npm/claude.cmd','%LOCALAPPDATA%/Programs/claude/claude.exe','PATH:claude.exe','PATH:claude.cmd'];
-function claudeBinary(options){return hooks.candidates(CLAUDE_BINARIES,options)[0]||null;}
+// The Claude desktop app runs its own copy of Claude Code (its Code tab), kept per version and build. It reads the same
+// ~/.claude settings, so on a PC with only the desktop app, connecting goes through that copy (the newest one).
+const CLAUDE_DESKTOP_BINARIES=['%LOCALAPPDATA%/Claude-Data/*/claude-code/*/*/claude.exe'];
+// Installed somewhere none of these lists name, a running Claude Code still shows where it is. The desktop app's own
+// window is also Claude.exe; only Claude Code itself carries this setting name.
+const CLAUDE_MARKER=Buffer.from('CLAUDE_CONFIG_DIR');
+function isClaudeCode(file){
+ try{const fd=fs.openSync(file,'r'),chunk=Buffer.alloc(8*1048576);
+  try{let carry=Buffer.alloc(0),read;while((read=fs.readSync(fd,chunk,0,chunk.length,null))>0){const view=Buffer.concat([carry,chunk.subarray(0,read)]);if(view.includes(CLAUDE_MARKER))return true;carry=view.subarray(view.length-CLAUDE_MARKER.length+1);}return false;}
+  finally{fs.closeSync(fd);}}catch{return false;}
+}
+function claudeBinary({processes,...options}={}){
+ const found=hooks.candidates(CLAUDE_BINARIES,options)[0]||hooks.candidates(CLAUDE_DESKTOP_BINARIES,options).sort((a,b)=>fs.statSync(b).mtimeMs-fs.statSync(a).mtimeMs)[0];
+ if(found)return found;
+ const running=[...new Set((processes||(status.cache??=runningProcesses())).filter(p=>p.name==='claude.exe'&&p.path).map(p=>p.path))];
+ return running.find(isClaudeCode)||null;
+}
 function claudePlugin(){return loadMapping('claude-code').install.plugin;}
 function claudeState({home=os.homedir(),root=ROOT}={}){
  const plugin=claudePlugin(),id=plugin.name+'@'+plugin.marketplace,dir=process.env.CLAUDE_CONFIG_DIR||path.join(home,'.claude');
@@ -85,13 +101,13 @@ function lastHookCalls(profile){
  return last;
 }
 
-// --- running processes (for "needs restart") ------------------------------------------------------------------
+// --- running processes (for "needs restart", and to find a Claude Code installed where no list looks) ----------
 function runningProcesses(){
  if(process.platform!=='win32')return [];
  const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
- const script="Get-CimInstance Win32_Process -Property Name,CreationDate | ForEach-Object { $_.Name + '|' + ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() }";
+ const script="Get-CimInstance Win32_Process -Property Name,CreationDate,ExecutablePath | ForEach-Object { $_.Name + '|' + ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() + '|' + $_.ExecutablePath }";
  const r=spawnSync(ps,['-NoLogo','-NoProfile','-NonInteractive','-Command',script],{encoding:'utf8',windowsHide:true,timeout:15000});
- return (r.stdout||'').split(/\r?\n/).filter(Boolean).map(line=>{const [name,at]=line.split('|');return {name:name.toLowerCase(),started:Number(at)};});
+ return (r.stdout||'').split(/\r?\n/).filter(Boolean).map(line=>{const [name,at,file]=line.split('|');return {name:name.toLowerCase(),started:Number(at),path:file||null};});
 }
 
 // --- status ------------------------------------------------------------------------------------------------
@@ -110,7 +126,7 @@ function status(id,{root=ROOT,home,env,profile=profileApi.profileDir(),processes
   if(st?.error){out.state='needs-action';out.detail=st.error;}
   if(connected){const expected=new Set(Object.keys(loadMapping(id).install.events||{}).map(e=>hooks.command(id,e)));stale=hooks.installedCommands(id,{home}).some(c=>!expected.has(c));}
  }
- const where=present(agent,{home,env});out.installed=!!where;out.connected=connected;
+ const where=present(agent,{home,env,processes});out.installed=!!where;out.connected=connected;
  if(out.state==='needs-action')return out;
  if(!where&&!connected){out.detail=agent.name+' was not found on this PC.';return out;}
  if(!connected){out.state='not-connected';out.detail='Installed, not connected.';return out;}
@@ -188,4 +204,4 @@ function disconnectAll(options={}){
  // error: the hook could not be removed (ok:false alone means it was removed but the file differs from its backup).
  return AGENTS.map(a=>{try{return disconnect(a.id,options);}catch(e){return {id:a.id,name:a.name,ok:false,error:e.message,lines:[e.message]};}});
 }
-module.exports={AGENTS,list,status,connect,disconnect,disconnectAll,disconnectProblems,claudeState,codexTrusted,stampClaudeHooks,readRecords,lastHookCalls};
+module.exports={AGENTS,list,status,connect,disconnect,disconnectAll,disconnectProblems,claudeBinary,claudeState,codexTrusted,stampClaudeHooks,readRecords,lastHookCalls};

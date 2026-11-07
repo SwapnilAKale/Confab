@@ -102,6 +102,27 @@ test('installed hooks run the bundled Node.js runtime when setup installed one',
  assert.equal(hooks.command('codex','Stop',{node:'C:\\Users\\A B\\node.exe',adapter:'C:\\x\\adapter.cjs',shortPath:()=>'C:\\Users\\AB~1\\node.exe'}),'C:/Users/AB~1/node.exe C:/x/adapter.cjs codex');
  assert.throws(()=>hooks.command('codex','Stop',{node:'C:\\Users\\A B\\node.exe',adapter:'C:\\x\\adapter.cjs',shortPath:()=>null}),/no short.*Nothing was changed/);
 });
+test('Claude Code is found in the Claude desktop app when no standalone copy is installed, newest version first',()=>{
+ const home=scratch('claude-desktop'),local=path.join(home,'Local'),env={...process.env,LOCALAPPDATA:local,APPDATA:path.join(home,'Roaming'),PATH:''},opts={home,env,profile:path.join(home,'profile'),processes:[]};
+ assert.equal(agents.status('claude-code',opts).state,'not-installed');
+ const exe=version=>{const dir=path.join(local,'Claude-Data','claude_x','claude-code',version,'b1');fs.mkdirSync(dir,{recursive:true});fs.writeFileSync(path.join(dir,'claude.exe'),'');return path.join(dir,'claude.exe');};
+ const older=exe('2.1.99'),newer=exe('2.1.317');
+ fs.utimesSync(older,new Date('2026-10-01'),new Date('2026-10-01'));fs.utimesSync(newer,new Date('2026-11-01'),new Date('2026-11-01'));
+ assert.equal(agents.claudeBinary({home,env}),newer);
+ assert.equal(agents.status('claude-code',opts).state,'not-connected');
+ // A standalone install is used when there is one.
+ const cli=path.join(home,'.local','bin');fs.mkdirSync(cli,{recursive:true});fs.writeFileSync(path.join(cli,'claude.exe'),'');
+ assert.equal(agents.claudeBinary({home,env}),path.join(cli,'claude.exe'));
+});
+test('a running Claude Code is found wherever it is installed, and the desktop app window (also Claude.exe) is not mistaken for it',()=>{
+ const home=scratch('claude-running'),env={...process.env,LOCALAPPDATA:path.join(home,'Local'),APPDATA:path.join(home,'Roaming'),PATH:''};
+ const file=(dir,text)=>{fs.mkdirSync(path.join(home,dir),{recursive:true});fs.writeFileSync(path.join(home,dir,'claude.exe'),text);return path.join(home,dir,'claude.exe');};
+ const window=file('Apps/Claude/app','electron app'),code=file('Somewhere/else/claude-code/9.9','... CLAUDE_CONFIG_DIR ...');
+ const running=[{name:'claude.exe',started:1,path:window},{name:'claude.exe',started:2,path:null},{name:'claude.exe',started:3,path:code}];
+ assert.equal(agents.claudeBinary({home,env,processes:running}),code);
+ assert.equal(agents.claudeBinary({home,env,processes:running.slice(0,2)}),null,'only the desktop window is running');
+ assert.equal(agents.status('claude-code',{home,env,profile:path.join(home,'profile'),processes:running}).state,'not-connected');
+});
 test('agent status: not connected, connected, untrusted Codex, a hook from another folder, and needs restart',()=>{
  const home=scratch('agents-home'),profile=path.join(home,'profile');
  const env={...process.env,LOCALAPPDATA:path.join(home,'Local'),PATH:''};
