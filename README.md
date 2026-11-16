@@ -58,9 +58,9 @@ Click into any text box, in any app, then:
 - If you click away while recording, the badge warns you. If the text can't be pasted into the same box, it is copied to the clipboard instead, and a notification tells you.
 - The first dictation after start-up, or after 15 idle minutes, takes longer while the models load.
 - A dictation can last up to 10 minutes. At 10 minutes it stops by itself with three falling tones, and what you said is pasted as usual. Press the hotkey again to continue.
-- Only the opening of a reply is read: its first paragraph, up to 3 sentences. Code, file paths, links and JSON are never read out.
+- Only the opening of a reply is read: its first paragraph, up to 3 sentences. Tick **Read full reply** in the tray to hear the whole reply. Code, file paths, links and JSON are never read out.
 
-**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.
+**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Read full reply** (off by default: only the opening is read), **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.
 
 ### Terminals
 
@@ -117,6 +117,7 @@ Settings live in `%LOCALAPPDATA%\Confab\resident\settings.json`. The tray writes
 | `dateOrder` | `"dmy"` | How ambiguous dates such as 07/10/2026 are read: day first (`"dmy"`) or month first (`"mdy"`). |
 | `modelsIdleMs` | `900000` | Unload the models after this many idle milliseconds. |
 | `talkbackCapMs` | `7200000` | A talk-back still unused after this long is cleared (10 minutes to 24 hours). |
+| `fullReply` | `false` | Read the whole reply instead of its opening (the tray's **Read full reply**). Overrides `spokenSentences` and `spokenChars` while on. |
 | `badge` | `true` | Show the status badge near the pointer. |
 | `vad` | see below | How speech is found in the recording: `{"threshold": 0.3, "preSpeechSeconds": 0.75, "minSilenceSeconds": 0.5}`. |
 

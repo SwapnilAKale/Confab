@@ -26,13 +26,16 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
  function logGate(entry){try{const file=path.join(profile,'requests.jsonl');fs.appendFileSync(file,JSON.stringify({at:new Date().toISOString(),...entry})+'\n',{mode:0o600});}catch{}}
  async function close(){if(closing)return;closing=true;clearInterval(timer);clearInterval(sweeper);try{if(JSON.parse(fs.readFileSync(descriptor,'utf8')).pid===process.pid)fs.unlinkSync(descriptor);}catch{}if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}try{if(controller)await controller.close();else{input?.close();engine?.close();await audio?.close();await tray?.close();}}finally{release();}}
  function persist(){profileApi.saveSettings(profile,{...settings,readAloud:settings.readMode!=='off'});}
- function state(){return {pid:process.pid,version:VERSION,phase:controller?.state||'starting',models:engine?.state||'unloaded',normalizerError:engine?.normalizerError||null,readMode:gate.mode,readAloud:gate.mode!=='off',badge:settings.badge,talkback:gate.status().pending,hotkeys:input?.hotkeys?Object.fromEntries(Object.entries(input.hotkeys).map(([action,key])=>[action,key.label])):undefined,hotkeysUnavailable:(input?.missing||[]).map(a=>input.hotkeys?.[a]?.label||a),paused:settings.paused,modelsIdleMs:settings.modelsIdleMs,memory:process.memoryUsage(),...controller?.status()};}
+ function state(){return {pid:process.pid,version:VERSION,phase:controller?.state||'starting',models:engine?.state||'unloaded',normalizerError:engine?.normalizerError||null,readMode:gate.mode,readAloud:gate.mode!=='off',badge:settings.badge,fullReply:settings.fullReply,talkback:gate.status().pending,hotkeys:input?.hotkeys?Object.fromEntries(Object.entries(input.hotkeys).map(([action,key])=>[action,key.label])):undefined,hotkeysUnavailable:(input?.missing||[]).map(a=>input.hotkeys?.[a]?.label||a),paused:settings.paused,modelsIdleMs:settings.modelsIdleMs,memory:process.memoryUsage(),...controller?.status()};}
+ // Spoken length: the opening (spokenSentences/spokenChars) by default; the whole reply when fullReply is on.
+ function spokenLimits(){return settings.fullReply?{sentences:0,chars:0,dateOrder:settings.dateOrder}:{sentences:settings.spokenSentences,chars:settings.spokenChars,dateOrder:settings.dateOrder};}
  function setMode(mode){gate.setMode(mode);settings.readMode=mode;controller.setReadAloud(mode!=='off');}
  async function control(action){
   if(action==='quit'){void close();return;}
   if(DIALOGS.includes(action)){dialog(root,action);return;}
   if(MODE_ACTIONS[action])setMode(MODE_ACTIONS[action]);
   else if(action==='readAloud')setMode(gate.mode==='off'?'talkback':'off');
+  else if(action==='fullReply'){settings.fullReply=!settings.fullReply;controller.spoken=spokenLimits();}
   else if(action==='badge'){settings.badge=!settings.badge;tray.setBadgeEnabled?.(settings.badge);}
   else if(action==='pause'){const paused=!settings.paused;await controller.setPaused(paused);settings.paused=controller.paused;}
   persist();tray.update({...state()});
@@ -42,7 +45,7 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
   input=createInput?createInput():new(require('../input/windows-text.cjs').WindowsTextInput)({restoreClipboard:true,talkback:true,partial:true,immediate:true,hotkeys:settings.hotkeys,accessibility:new(require('../input/lazy-accessibility.cjs').LazyAccessibility)()});
   audio=createAudio?createAudio():new(require('./audio-threads.cjs').ThreadedAudio)();
   engine=new LazySpeechEngine(engineFactory||(()=>require('./engine-factory.cjs').makeEngine(root,{profile})),{idleMs:settings.modelsIdleMs,busy:()=>!!controller?.capture||controller?.pendingReplies>0});
-  controller=new PcController({engine,audio,input,notify:tray,lazy:true,spoken:{sentences:settings.spokenSentences,chars:settings.spokenChars,dateOrder:settings.dateOrder},onTalkback:text=>gate.dictated(text),onDisarm:()=>gate.disarm(),saveDraft:text=>{fs.mkdirSync(draftDir,{recursive:true});const name=require('node:crypto').createHash('sha256').update(text).digest('hex');fs.writeFileSync(path.join(draftDir,name+'.json'),JSON.stringify({text,at:Date.now()}),{mode:0o600});},clearDraft:text=>{try{fs.unlinkSync(path.join(draftDir,require('node:crypto').createHash('sha256').update(text).digest('hex')+'.json'));}catch{}}});
+  controller=new PcController({engine,audio,input,notify:tray,lazy:true,spoken:spokenLimits(),onTalkback:text=>gate.dictated(text),onDisarm:()=>gate.disarm(),saveDraft:text=>{fs.mkdirSync(draftDir,{recursive:true});const name=require('node:crypto').createHash('sha256').update(text).digest('hex');fs.writeFileSync(path.join(draftDir,name+'.json'),JSON.stringify({text,at:Date.now()}),{mode:0o600});},clearDraft:text=>{try{fs.unlinkSync(path.join(draftDir,require('node:crypto').createHash('sha256').update(text).digest('hex')+'.json'));}catch{}}});
   await controller.ready();controller.setReadAloud(gate.mode!=='off');if(settings.paused)await controller.setPaused(true);
   let controls=Promise.resolve();tray.on('action',action=>{controls=controls.then(()=>control(action)).catch(()=>controller.failure('Tray action failed. Check Confab status.'));});
   // Bounded request log and counters: status, reason, decision, agent, session/turn ids and time; for a turn that
