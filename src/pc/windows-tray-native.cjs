@@ -82,13 +82,15 @@ class NativeTray {
  }
  add(){if(!fn.notify(0,this.data))throw Error('Windows could not add the Confab tray icon.');}
  pump(){let msg={};while(fn.peek(msg,this.window,0,0,1)){fn.dispatch(msg);msg={};}}
- update(state){if(this.closed)return;this.state=state;this.data.tip=wide('Confab - models '+state.models+(state.paused?' - paused':''),128);fn.notify(1,{...this.data,flags:4});}
+ update(state){if(this.closed)return;this.state=state;this.data.tip=wide('Confab - models '+state.models+(state.paused?' - paused':'')+(state.updateAvailable?.version?' - v'+state.updateAvailable.version+' available':''),128);fn.notify(1,{...this.data,flags:4});}
  failure(text){if(this.closed)return false;return !!fn.notify(1,{...this.data,flags:16,info:wide(text,256)});}
+ info(text){if(this.closed)return false;return !!fn.notify(1,{...this.data,flags:16,infoFlags:1,info:wide(text,256)});}
  buildMenu(){
   const menu=fn.popup();if(!menu)throw Error('Could not create the Confab menu.');
   try {
    const rows=hotkeyRows(this.state);
-   const entries=[[2,0,'Confab: models '+this.state.models+(this.state.paused?' / paused':'')],[0x800,0,null],...rows,...(rows.length?[[0x800,0,null]]:[]),...MODES.map(([id,mode,label])=>[0x200|(this.state.readMode===mode?8:0),id,label]),[this.state.fullReply?8:0,11,'Read full reply'],[0x800,0,null],[this.state.badge===false?0:8,7,'Status badge near pointer'],[this.state.paused?8:0,2,'Pause hotkeys'],[0x800,0,null],[0,8,'Connect agents…'],[0,9,'Diagnose…'],[0x800,0,null],[0,10,'Uninstall Confab…'],[0,3,'Quit Confab']];
+   const updateRow=this.state.updateAvailable?.version?[[0,13,'Update available (v'+this.state.updateAvailable.version+')…']]:[];
+   const entries=[[2,0,'Confab: models '+this.state.models+(this.state.paused?' / paused':'')],...updateRow,[0x800,0,null],...rows,...(rows.length?[[0x800,0,null]]:[]),...MODES.map(([id,mode,label])=>[0x200|(this.state.readMode===mode?8:0),id,label]),[this.state.fullReply?8:0,11,'Read full reply'],[0x800,0,null],[this.state.badge===false?0:8,7,'Status badge near pointer'],[this.state.paused?8:0,2,'Pause hotkeys'],[this.state.checkUpdates===false?0:8,12,'Check for updates'],[0x800,0,null],[0,8,'Connect agents…'],[0,9,'Diagnose…'],[0x800,0,null],[0,10,'Uninstall Confab…'],[0,3,'Quit Confab']];
    for(const [flags,id,text] of entries)if(!fn.append(menu,flags,id,text))throw Error('Could not populate the Confab menu.');
    return menu;
   }catch(error){fn.destroyMenu(menu);throw error;}
@@ -101,7 +103,7 @@ class NativeTray {
    fn.foreground(this.window);
    const chosen=fn.track(menu,0x100|0x2,p.x,p.y,0,this.window,null);
    fn.post(this.window,0,0,0);
-   const action=({2:'pause',3:'quit',7:'badge',8:'agents',9:'diagnose',10:'uninstall',11:'fullReply',...Object.fromEntries(MODES.map(([id,mode])=>[id,'mode:'+mode]))})[chosen];if(action)this.onAction(action);
+   const action=({2:'pause',3:'quit',7:'badge',8:'agents',9:'diagnose',10:'uninstall',11:'fullReply',12:'checkUpdates',13:'openUpdate',...Object.fromEntries(MODES.map(([id,mode])=>[id,'mode:'+mode]))})[chosen];if(action)this.onAction(action);
   }catch(error){this.onError(error.message);}
   finally{if(menu)fn.destroyMenu(menu);this.menuOpen=false;}
  }

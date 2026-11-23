@@ -6,6 +6,7 @@ class WindowsTray extends EventEmitter{
  badge(state){if(!this.closed)this.worker.postMessage({type:'badge',state});}
  setBadgeEnabled(enabled){if(!this.closed)this.worker.postMessage({type:'badgeEnabled',enabled:!!enabled});}
  failure(message){if(this.closed)return false;this.worker.postMessage({type:'notification',message});return true;}
+ info(message){if(this.closed)return false;this.worker.postMessage({type:'info',message});return true;}
  async close(){if(this.closed)return;this.closed=true;this.worker.postMessage({type:'close'});await Promise.race([new Promise(r=>this.worker.once('exit',r)),new Promise(r=>setTimeout(r,1000))]);await this.worker.terminate();}
 }
 module.exports={WindowsTray};

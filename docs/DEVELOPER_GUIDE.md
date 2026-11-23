@@ -202,4 +202,5 @@ npm test
   | Microphone open | about 410 ms; longest main-thread pause 19 ms on the worker thread vs 423 ms on the main thread |
 
   Word error rate on human speech is not measured yet: record your voice with `record-test-voice.cjs`, then run the benchmark.
-- The service has no network access in its speech workers (`src/no-network.cjs`), binds only 127.0.0.1, and requires the bearer token on every route.
+- **Cutting a release.** Update `version` in `package.json`, commit, then push a matching tag (`git tag vX.Y.Z && git push origin vX.Y.Z`). [`.github/workflows/release.yml`](../.github/workflows/release.yml) runs `scripts/package-release.cjs` and publishes `Confab-vX.Y.Z.zip` and `latest.json` on GitHub Releases. GitHub tracks download counts for each asset separately (`Confab-vX.Y.Z.zip` for downloads, `latest.json` for daily update checks).
+- The speech workers have no network access (`src/no-network.cjs`). The resident service binds only 127.0.0.1, requires the bearer token on every route, and its only outbound request is the optional daily check for `latest.json` on GitHub Releases (`src/pc/update-check.cjs`).

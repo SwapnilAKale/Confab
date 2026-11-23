@@ -1,0 +1,32 @@
+# Builds and publishes a GitHub Release whenever a version tag (vX.Y.Z) is pushed.
+# Attaches Confab-vX.Y.Z.zip (the downloadable copy for users) and latest.json (the tiny manifest read by
+# Confab's daily update check). GitHub tracks download counts for each asset separately.
+name: Release
+on:
+  push:
+    tags:
+      - 'v*'
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Package release archive and manifest
+        run: node scripts/package-release.cjs --out dist --tag "${GITHUB_REF_NAME}"
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "dist/Confab-${TAG}.zip" "dist/latest.json" --clobber
+          else
+            gh release create "$TAG" "dist/Confab-${TAG}.zip" "dist/latest.json" \
+              --title "Confab ${TAG}" \
+              --generate-notes
+          fi

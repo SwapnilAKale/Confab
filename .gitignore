@@ -21,3 +21,6 @@ desktop.ini
 
 # Model verification record written by setup
 assets/models-verified.json
+
+# Release build artifacts
+dist/
