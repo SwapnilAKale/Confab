@@ -98,7 +98,7 @@ Open the tray menu → **Connect agents…**. The window lists the supported age
 - **Not installed**, or **Installed – not connected**: click **Connect**.
 - **Connected**: talk-back works. **Disconnect** removes the hook and puts the agent's settings back as they were.
 - **Connected – needs restart**: the agent was already running when you connected it. Restart it as the window says.
-- **Needs action**: something to do in the agent itself, spelled out in the window. Codex, for example, runs a new hook only after you trust it: in the Codex app or VS Code extension, open **Settings → Hooks** and click **Trust all**; in the Codex CLI, type `/hooks` and press `t`.
+- **Needs action**: something to do in the agent itself, spelled out in the window. Click **Connect** to repair it. Codex, for example, runs a new hook only after it is trusted: connecting Codex has Codex trust Confab's own hooks (only those) for you. If Codex can't be asked, the window shows how to trust them yourself: in the Codex app or VS Code extension, **Settings → Hooks → Trust all**; in the Codex CLI, `/hooks`, then `t`.
 
 Connecting changes only Confab's own entries, keeps a backup of the agent's file, and never needs the agent to be reinstalled or updated. See [Supported agents](docs/SUPPORTED_AGENTS.md) for what each agent supports.
 

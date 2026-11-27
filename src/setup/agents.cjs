@@ -4,14 +4,15 @@
 // own plugin commands), without a terminal. Each connection is recorded in the profile (connections.json) with its
 // time, so that an agent still running from before it was connected is reported as needing a restart.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawnSync}=require('node:child_process');
-const hooks=require('../adapters/hooks/install.cjs'),{loadMapping}=require('../adapters/hooks/adapter.cjs'),profileApi=require('../pc/profile.cjs');
+const hooks=require('../adapters/hooks/install.cjs'),codexTrust=require('./codex-trust.cjs'),{loadMapping}=require('../adapters/hooks/adapter.cjs'),profileApi=require('../pc/profile.cjs');
 const ROOT=path.resolve(__dirname,'..','..');
 // processes: executables whose instances started before the connection still run the old hook set.
 // restart: what the user does so the agent loads the hook. step: a one-time step inside the agent, when it has one.
 const AGENTS=[
  {id:'claude-code',name:'Claude Code',processes:['claude.exe'],restart:'Close and reopen Claude Code (each running session, terminal or VS Code). New sessions load the hook.'},
  {id:'codex',name:'Codex',processes:['codex.exe'],restart:'Quit and reopen the Codex app, VS Code, or the Codex CLI.',
-  step:'Codex runs a new hook only after you trust it. In the Codex app or the VS Code extension: open Settings, choose Hooks, then click "Trust all". In the Codex CLI: type /hooks and press t.'},
+  // Shown only when Connect could not have Codex trust the hooks itself (codex-trust.cjs).
+  step:'Codex runs a new hook only after it is trusted. Click Connect to have Codex trust Confab\'s hooks. Or trust them in Codex: in the Codex app or the VS Code extension, open Settings, choose Hooks, then click "Trust all". In the Codex CLI: type /hooks and press t.'},
  {id:'cursor',name:'Cursor',processes:['cursor.exe'],restart:'Quit and reopen Cursor.'},
  {id:'antigravity',name:'Antigravity',processes:['antigravity.exe','language_server.exe','agy.exe'],restart:'Quit and reopen Antigravity.'},
  {id:'gemini',name:'Gemini CLI',processes:[],restart:'Start a new Gemini CLI session.'},
@@ -130,16 +131,42 @@ function status(id,{root=ROOT,home,env,profile=profileApi.profileDir(),processes
  if(out.state==='needs-action')return out;
  if(!where&&!connected){out.detail=agent.name+' was not found on this PC.';return out;}
  if(!connected){out.state='not-connected';out.detail='Installed, not connected.';return out;}
- if(stale){out.state='needs-action';out.detail='Connected to a different Confab folder. Click Connect to point it at this installation.';return out;}
- if(id==='codex'&&!codexTrusted({home})){out.state='needs-action';out.detail='Codex has not trusted the hook yet, so it will not run.';out.step=agent.step;return out;}
+ // A hook from another Confab folder (a development copy, or the installed app seen from one) still works while that
+ // folder is there: it reaches whichever Confab is running. Only a missing folder, or an outdated hook, needs Connect.
+ let elsewhere=null;
+ if(stale){elsewhere=id==='claude-code'?claudeElsewhere({home,root}):hooksElsewhere(id,{home,root});
+  if(!elsewhere){out.state='needs-action';out.detail='Connected to a different Confab folder. Click Connect to point it at this installation.';return out;}
+  out.elsewhere=elsewhere;}
  // A hook call logged since connecting proves the agent runs the hook, whatever was running before.
  const record=records[id],called=lastHookCalls(profile)[id];
- if(record?.at&&agent.processes.length&&!(called&&called>=record.at)){
-  const list=processes||(status.cache??=runningProcesses());
-  if(list.some(p=>agent.processes.includes(p.name)&&p.started&&p.started<record.at)){out.state='needs-restart';out.detail='Connected. '+agent.name+' was already running and has not loaded the hook yet.';out.restart=agent.restart;return out;}
- }
- out.state='connected';out.detail='Connected. Talk-back replies from '+agent.name+' are read aloud.';
+ const openBefore=()=>{if(!(record?.at&&agent.processes.length&&!(called&&called>=record.at)))return false;
+  const list=processes||(status.cache??=runningProcesses());return list.some(p=>agent.processes.includes(p.name)&&p.started&&p.started<record.at);};
+ if(id==='codex'&&!codexTrusted({home})){out.state='needs-action';out.detail='Codex has not trusted the hook yet, so it will not run.';out.step=agent.step;return out;}
+ if(openBefore()){out.state='needs-restart';out.detail='Connected. '+agent.name+' was already running and has not loaded the hook yet.';out.restart=agent.restart;return out;}
+ out.state='connected';out.detail=elsewhere?'Connected through the Confab copy in '+elsewhere+'. Talk-back replies from '+agent.name+' are read aloud.':'Connected. Talk-back replies from '+agent.name+' are read aloud.';
  return out;
+}
+// The other Confab folder a stale connection runs, when it is still there and complete; else null.
+// Claude Code: the plugin's marketplace folder (<folder>/src/adapters/claude-code) still holds the plugin.
+function claudeElsewhere({home,root=ROOT}={}){
+ const source=claudeState({home,root}).marketplace;if(!source)return null;
+ const folder=path.resolve(source,'..','..','..');
+ return path.resolve(folder).toLowerCase()!==path.resolve(root).toLowerCase()&&fs.existsSync(path.join(source,'plugin','hooks','hooks.json'))?folder:null;
+}
+// Other agents: every Confab command is "<node> <folder>/src/adapters/hooks/adapter.cjs <agent> [event]" for one other
+// folder whose adapter and node still exist, and together they cover every event this installation would install.
+function hooksElsewhere(id,{home,root=ROOT}={}){
+ const tail=c=>c.trim().split(/\s+/).slice(2).join(' '),spec=loadMapping(id).install,events=Object.keys(spec.events||{});
+ const expected=new Set(events.map(e=>tail(hooks.command(id,e))));
+ // Where one command serves several events (Codex), each event must still have it.
+ if(!spec.files){const st=hooks.status(id,{home});if(st.error||!events.every(e=>st.installed?.includes(e)))return null;}
+ const folders=new Set(),covered=new Set();
+ for(const c of hooks.installedCommands(id,{home})){const [node,adapter]=c.trim().split(/\s+/);
+  if(!adapter||!/adapters[\\/]+hooks[\\/]+adapter\.cjs$/.test(adapter)||!fs.existsSync(adapter)||(node!=='node'&&!fs.existsSync(node)))return null;
+  folders.add(path.resolve(adapter,'..','..','..','..').toLowerCase());covered.add(tail(c));}
+ const [folder]=folders;
+ if(folders.size!==1||folder===path.resolve(root).toLowerCase()||![...expected].every(e=>covered.has(e)))return null;
+ return path.resolve(hooks.installedCommands(id,{home})[0].trim().split(/\s+/)[1],'..','..','..','..');
 }
 // Codex keeps trust per hook in config.toml as [hooks.state.'<hooks.json>:<event>:<group>:<handler>'] tables.
 function codexTrusted({home=os.homedir()}={}){
@@ -155,13 +182,21 @@ function list(options={}){
  const records=readRecords(options.profile||profileApi.profileDir());
  return AGENTS.map(a=>{try{return status(a.id,{...options,records});}catch(e){return {id:a.id,name:a.name,installed:false,connected:false,state:'needs-action',detail:e.message};}});
 }
-function connect(id,{root=ROOT,home,env,profile=profileApi.profileDir()}={}){
- const agent=byId(id);let lines=[];
+// codexPrograms: the Codex programs to ask for trust (tests pass a stand-in); default: those on this PC.
+function connect(id,{root=ROOT,home,env,profile=profileApi.profileDir(),codexPrograms,processes}={}){
+ const agent=byId(id);let lines=[],trustError=null;
  if(id==='claude-code')({lines}=connectClaude({root,home,env}));
  else{const r=hooks.install(id,{home,env});lines=['Changed '+r.file+': added '+r.added.join(', ')+(r.backup?' (original kept as '+path.basename(r.backup)+')':'')];}
+ // Codex runs the hooks only once trusted: Codex itself is asked to trust Confab's (and only Confab's) hooks.
+ if(id==='codex'){
+  const t=codexTrust.trustSync({home,hooksFile:hooks.configFile(loadMapping('codex').install,home||os.homedir()),...(codexPrograms?{programs:codexPrograms}:{}),...(env?{env}:{})});
+  if(t.ok)lines.push(t.trusted.length?'Codex trusted Confab\'s hooks ('+t.trusted.length+'), asked through '+t.exe:'Codex already trusted Confab\'s hooks');
+  else{trustError=t.error;lines.push('Codex could not be asked to trust the hooks: '+t.error);}
+ }
  const records=readRecords(profile);records[id]={at:Date.now(),root};writeRecords(profile,records);
  delete status.cache;
- return {...status(id,{root,home,env,profile}),lines,step:agent.step||null,restart:agent.restart};
+ const after=status(id,{root,home,env,profile,processes});
+ return {...after,lines,step:after.step||null,restart:agent.restart,...(trustError?{trustError}:{})};
 }
 function disconnect(id,{root=ROOT,home,env,profile=profileApi.profileDir()}={}){
  byId(id);let lines=[],ok=true;

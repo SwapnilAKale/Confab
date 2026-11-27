@@ -1,7 +1,7 @@
 'use strict';
 // Adds or removes Confab's own entries in a harness's hook configuration. Every other key and
 // hook is preserved. Our entries are recognised by their command, which runs adapters/hooks/adapter.cjs.
-const fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawnSync}=require('node:child_process');
 const {loadMapping}=require('./adapter.cjs');
 const ADAPTER=path.join(__dirname,'adapter.cjs');
 const OURS=/adapters[\\/]+hooks[\\/]+adapter\.cjs/;
@@ -78,11 +78,28 @@ function write(file,before,config){
  if(before.exists&&!fs.existsSync(file+'.confab.bak'))fs.copyFileSync(file,file+'.confab.bak');
  const temp=file+'.confab.tmp';fs.writeFileSync(temp,JSON.stringify(config,null,2)+'\n');fs.renameSync(temp,file);
 }
-// Candidate paths: ~ and %VAR% are expanded, a "*" segment matches any directory entry,
-// and "PATH:name" searches PATH.
+// Where a Microsoft Store app is installed ("APPX:<package name>:<file inside it>"). Its folder under
+// C:\Program Files\WindowsApps cannot be listed, so Windows is asked, and only when the user has the package (it
+// keeps a data folder %LOCALAPPDATA%\Packages\<name>_<publisher>). Cached per process.
+const appxCache=new Map();
+function appxLocation(name,env=process.env){
+ const packages=path.join(env.LOCALAPPDATA||'','Packages');
+ let has=false;try{has=!!env.LOCALAPPDATA&&fs.readdirSync(packages).some(n=>n.toLowerCase().startsWith(name.toLowerCase()+'_'));}catch{}
+ if(!has||process.platform!=='win32')return null;
+ if(!appxCache.has(name)){
+  const ps=path.join(env.SystemRoot||process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+  const r=spawnSync(ps,['-NoLogo','-NoProfile','-NonInteractive','-Command','(Get-AppxPackage -Name '+name.replace(/[^\w.-]/g,'')+' | Sort-Object Version -Descending | Select-Object -First 1).InstallLocation'],{encoding:'utf8',windowsHide:true,timeout:15000});
+  appxCache.set(name,(r.stdout||'').trim()||null);
+ }
+ return appxCache.get(name);
+}
+// Candidate paths: ~ and %VAR% are expanded, a "*" segment matches any directory entry, "PATH:name" searches PATH,
+// and "APPX:<package>:<file>" is a file inside an installed Store app.
 function candidates(patterns,{home=os.homedir(),env=process.env}={}){
  const found=[];
  for(const pattern of patterns){
+  // Asking Windows takes a second or two, so a Store app is looked up only when nothing else was found.
+  if(pattern.startsWith('APPX:')){if(found.length)continue;const [,name,file]=pattern.split(':'),root=appxLocation(name,env);if(root&&fs.existsSync(path.join(root,file)))found.push(path.join(root,file));continue;}
   if(pattern.startsWith('PATH:')){for(const dir of (env.PATH||env.Path||'').split(path.delimiter).filter(Boolean)){const file=path.join(dir,pattern.slice(5));if(fs.existsSync(file))found.push(file);}continue;}
   const expanded=pattern.replace(/^~(?=[\\/])/,home).replace(/%([A-Z_]+)%/g,(_,name)=>env[name]??'%'+name+'%');
   if(/%[A-Z_]+%/.test(expanded))continue;
@@ -223,4 +240,4 @@ function status(harness,{home}={}){
  try{config=read(file).config;}catch(e){return {file,error:e.message};}
  const probe=structuredClone(config);return {file,installed:strip(probe,spec)};
 }
-module.exports={install,uninstall,status,command,isOurs,configFile,checkSupport,candidates,removeClaudeLeftovers,bundledNode,spaceFree,windowsShortPath,installedCommands,trustKeys,read};
+module.exports={appxLocation,install,uninstall,status,command,isOurs,configFile,checkSupport,candidates,removeClaudeLeftovers,bundledNode,spaceFree,windowsShortPath,installedCommands,trustKeys,read};

@@ -146,9 +146,25 @@ test('agent status: not connected, connected, untrusted Codex, a hook from anoth
  fs.writeFileSync(path.join(profile,'hooks.jsonl'),JSON.stringify({at:new Date(at+5000).toISOString(),harness:'codex',event:'Stop'})+'\n');
  assert.equal(agents.status('codex',{...opts,records:undefined,processes:[{name:'codex.exe',started:at-60000}]}).state,'connected');
  fs.unlinkSync(path.join(profile,'hooks.jsonl'));
- // A hook pointing at another Confab folder.
- const config=JSON.parse(fs.readFileSync(file,'utf8'));config.hooks.Stop[0].hooks[0].command='node C:/old/src/adapters/hooks/adapter.cjs codex';fs.writeFileSync(file,JSON.stringify(config));
+ // A hook pointing at another Confab folder that is gone: Connect repairs it.
+ const original=fs.readFileSync(file,'utf8');
+ const config=JSON.parse(original);config.hooks.Stop[0].hooks[0].command='node C:/old/src/adapters/hooks/adapter.cjs codex';fs.writeFileSync(file,JSON.stringify(config));
  assert.match(agents.status('codex',opts).detail,/different Confab folder/);
+ // One whose folder is still there, for every event (a development copy, or the installed app seen from one): it
+ // works, so it is connected, through that copy.
+ const other=path.join(home,'other-confab'),adapter=path.join(other,'src','adapters','hooks','adapter.cjs');fs.mkdirSync(path.dirname(adapter),{recursive:true});fs.writeFileSync(adapter,'');
+ for(const groups of Object.values(config.hooks))for(const g of groups)for(const h of g.hooks)h.command='node '+adapter.replace(/\\/g,'/')+' codex';
+ fs.writeFileSync(file,JSON.stringify(config));
+ const e=agents.status('codex',opts);assert.equal(e.state,'connected');assert.equal(e.elsewhere.toLowerCase(),other.toLowerCase());assert.match(e.detail,/^Connected through the Confab copy in /);
+ // Not when it lacks an event this installation would install.
+ delete config.hooks.SessionEnd;fs.writeFileSync(file,JSON.stringify(config));assert.match(agents.status('codex',opts).detail,/different Confab folder/);
+ fs.writeFileSync(file,original);
+ // Untrusted comes before needs restart: whether or not Codex was open, the step is to trust the hooks (Connect has
+ // Codex do it, see codex-trust.test.cjs), then the restart, if still needed, is shown once they are trusted.
+ const toml=fs.readFileSync(path.join(home,'.codex','config.toml'),'utf8');fs.writeFileSync(path.join(home,'.codex','config.toml'),'');
+ const u=agents.status('codex',{...opts,records:undefined,processes:[{name:'codex.exe',started:at-60000}]});
+ assert.equal(u.state,'needs-action');assert.match(u.step,/^Codex runs a new hook only after it is trusted\. Click Connect/);
+ fs.writeFileSync(path.join(home,'.codex','config.toml'),toml);
  // Disconnect restores the agent's files.
  const d=agents.disconnect('codex',{home,env,profile});assert.equal(d.ok,true);assert.equal(fs.existsSync(file),false,'a hooks.json Confab created is deleted');
  assert.equal(fs.readFileSync(path.join(home,'.codex','config.toml'),'utf8').includes('hooks.state'),false,'trust entries removed');
@@ -235,4 +251,19 @@ test('the repository keeps the checksummed notice files in Unix line endings on 
  const attributes=fs.readFileSync(path.join(__dirname,'..','.gitattributes'),'utf8');
  assert.match(attributes,/^assets\/notices\/\*\* text eol=lf$/m);
  assert.match(attributes,/^\*\.cmd text eol=crlf$/m,'the launchers keep Windows line endings');
+});
+
+test('Claude Code connected through another Confab copy that is still there is connected; a missing one needs Connect',t=>{
+ const home=scratch('agents-claude-elsewhere'),env={...process.env,LOCALAPPDATA:path.join(home,'Local'),PATH:''},profile=path.join(home,'profile');
+ const saved=process.env.CLAUDE_CONFIG_DIR;delete process.env.CLAUDE_CONFIG_DIR;t.after(()=>{if(saved!==undefined)process.env.CLAUDE_CONFIG_DIR=saved;});
+ const {loadMapping}=require('../src/adapters/hooks/adapter.cjs'),plugin=loadMapping('claude-code').install.plugin,id=plugin.name+'@'+plugin.marketplace;
+ const other=path.join(home,'installed-confab'),source=path.join(other,plugin.path);
+ const write=(rel,value)=>{const f=path.join(home,'.claude',rel);fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify(value));};
+ write('plugins/installed_plugins.json',{plugins:{[id]:[{}]}});write('settings.json',{enabledPlugins:{[id]:true}});
+ write('plugins/known_marketplaces.json',{[plugin.marketplace]:{source:{source:'directory',path:source}}});
+ const opts={home,env,profile,processes:[]};
+ assert.match(agents.status('claude-code',opts).detail,/different Confab folder/,'that copy is gone');
+ fs.mkdirSync(path.join(source,'plugin','hooks'),{recursive:true});fs.writeFileSync(path.join(source,'plugin','hooks','hooks.json'),'{}');
+ const s=agents.status('claude-code',opts);assert.equal(s.state,'connected');assert.equal(s.elsewhere.toLowerCase(),other.toLowerCase());assert.match(s.detail,/^Connected through the Confab copy in .*Claude Code are read aloud\.$/);
+ assert.equal(agents.status('claude-code',{...opts,root:other}).elsewhere,undefined,'seen from that copy itself it is simply connected');
 });

@@ -260,7 +260,8 @@ foreach ($agent in $found) {
     $label = $agent.name.PadRight(13)
     if ($agent.state -eq 'connected' -or $agent.state -eq 'needs-restart') { Ok ($label + 'already connected'); continue }
     $offer = 'Connect'; if ($agent.connected) { $offer = 'Repair the connection to' }
-    if ($agent.state -eq 'needs-action' -and $agent.step) { Info ($label + $agent.detail); Info $agent.step; continue }
+    # Needs action (Codex: hooks not trusted yet) is repaired by connecting again, which has Codex trust them.
+    if ($agent.state -eq 'needs-action') { Info ($label + $agent.detail) }
     $yes = $false
     if ($Agents -eq 'all') { $yes = $true }
     elseif ($Agents -eq 'ask') { $answer = Read-Host ('  ' + $offer + ' ' + $agent.name + '? [Y/n]'); $yes = ($answer -eq '' -or $answer -match '^[yY]') }
@@ -269,6 +270,7 @@ foreach ($agent in $found) {
     $result = (& $node (Join-Path $app 'scripts\agents.cjs') connect $agent.id --json) | ConvertFrom-Json
     if ($result.error) { Write-Host ('  X   ' + $agent.name + ': ' + $result.error) -ForegroundColor Red; continue }
     Ok ($label + 'connected')
+    if ($result.trustError) { Write-Host ('      Codex could not be asked to trust the hooks: ' + $result.trustError) -ForegroundColor Yellow }
     if ($result.step) { Write-Host ('      One step left in ' + $agent.name + ': ' + $result.step) -ForegroundColor Yellow }
     if ($result.state -eq 'needs-restart' -and $result.restart) { Write-Host ('      ' + $result.restart) -ForegroundColor Yellow }
 }

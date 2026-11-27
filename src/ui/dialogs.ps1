@@ -78,7 +78,8 @@ function Show-Agents {
             $state.Location = New-Object System.Drawing.Point(160, 7); $state.Size = New-Object System.Drawing.Size(250, 22)
             $row.Controls.AddRange(@($name, $state))
             $details = @()
-            if ($a.state -ne 'not-installed' -and $a.state -ne 'not-connected' -and $a.state -ne 'connected' -and $a.detail) { $details += $a.detail }
+            # A connected agent shows its detail only when it runs the hook of another Confab copy.
+            if ($a.state -ne 'not-installed' -and $a.state -ne 'not-connected' -and ($a.state -ne 'connected' -or $a.elsewhere) -and $a.detail) { $details += $a.detail }
             if ($a.state -eq 'needs-restart' -and $a.restart) { $details += $a.restart }
             $height = 36
             if ($details.Count) {
@@ -87,8 +88,8 @@ function Show-Agents {
                 $info.MaximumSize = New-Object System.Drawing.Size(630, 0); $info.AutoSize = $true; $info.Font = $font
                 $row.Controls.Add($info); $height = 40 + $info.GetPreferredSize((New-Object System.Drawing.Size(630, 0))).Height
             }
-            # A step the user must take inside the agent (Codex: trust the hook) gets its own highlighted box, with a
-            # button to check again once it is done.
+            # A step the user must take inside the agent (Codex: trust the hook, when Connect could not have Codex do it)
+            # gets its own highlighted box, with a button to check again once it is done.
             if ($a.step) {
                 $box = New-Object System.Windows.Forms.Panel
                 $box.BackColor = [System.Drawing.Color]::FromArgb(255, 244, 214); $box.BorderStyle = 'FixedSingle'
@@ -108,7 +109,8 @@ function Show-Agents {
                 $row.Controls.Add($box); $height += $box.Height + 8
             }
             $buttons = @()
-            if ($a.state -eq 'not-connected' -or ($a.state -eq 'needs-action' -and -not $a.step)) { $buttons += ,@('Connect', 'connect') }
+            # Connect repairs every "needs action" (for Codex it also has Codex trust the hooks).
+            if ($a.state -eq 'not-connected' -or $a.state -eq 'needs-action') { $buttons += ,@('Connect', 'connect') }
             if ($a.connected) { $buttons += ,@('Disconnect', 'disconnect') }
             $x = 540
             foreach ($spec in $buttons) {
@@ -135,8 +137,11 @@ function Show-Agents {
             try { $r = $raw | ConvertFrom-Json } catch { $r = [pscustomobject]@{ error = $raw } }
             if ($r -is [array]) { $r = $r[0] }
             if ($r.error) { [void][System.Windows.Forms.MessageBox]::Show($form, $r.error, 'Confab - ' + $label, 'OK', 'Warning') }
-            # A step inside the agent (Codex: trust the hook) needs no message: the list shows it in its own box.
-            elseif ($what -eq 'connect' -and $r.step) { }
+            # A step still left inside the agent (Codex: trust the hook) is shown in its own box in the list, with why
+            # Connect could not do it.
+            elseif ($what -eq 'connect' -and $r.step) {
+                if ($r.trustError) { [void][System.Windows.Forms.MessageBox]::Show($form, ($label + ' is connected, but Codex could not be asked to trust its hooks:' + "`r`n" + $r.trustError + "`r`n`r`n" + 'Trust them in Codex as the window shows.'), 'Confab - ' + $label, 'OK', 'Warning') }
+            }
             elseif ($what -eq 'connect') {
                 $message = $label + ' is connected.'
                 if ($r.state -eq 'needs-restart' -and $r.restart) { $message += "`r`n`r`n" + $label + ' is running and loads the hook only after a restart:' + "`r`n" + $r.restart }

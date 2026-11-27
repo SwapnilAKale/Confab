@@ -9,7 +9,8 @@
         "~/.vscode/extensions/openai.chatgpt-*/bin/windows-x86_64/codex.exe",
         "%APPDATA%/npm/node_modules/@openai/codex/vendor/*/codex/codex.exe",
         "PATH:codex.exe",
-        "PATH:codex.cmd"
+        "PATH:codex.cmd",
+        "APPX:OpenAI.Codex:app/resources/codex.exe"
       ],
       "marker": "last_assistant_message",
       "needs": "hooks whose Stop event carries last_assistant_message"
@@ -29,7 +30,7 @@
         "timeout": 3
       }
     },
-    "after": "Codex runs a new or changed hook only after you trust it: Settings > Hooks > Trust all (desktop app or VS Code extension), or /hooks in the CLI.",
+    "after": "Codex runs a new or changed hook only after it is trusted. Connecting asks Codex to trust Confab's own hooks; by hand: Settings > Hooks > Trust all (desktop app or VS Code extension), or /hooks in the CLI.",
     "trust": "~/.codex/config.toml"
   }
 }

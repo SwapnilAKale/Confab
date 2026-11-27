@@ -174,9 +174,10 @@ test('Connect agents shows a step inside the agent in its own box, with a button
  assert.match(dialogs,/if \(\$a\.step\) \{[\s\S]*'One more step in ' \+ \$a\.name[\s\S]*New-Button 'Done - check again'[\s\S]*\$timer\.Start\(\)/);
  assert.match(dialogs,/\$body\.Font = \$font[\s\S]*GetPreferredSize/,'measured in the window font, so the button never overlaps the text');
 });
-test('connecting an agent that needs a step inside it shows no pop-up: the box in the list explains it',()=>{
+test('connecting an agent that needs a step inside it shows no pop-up: the box in the list explains it; only why Codex could not be asked to trust is a warning',()=>{
  const dialogs=fs.readFileSync(path.join(__dirname,'..','src','ui','dialogs.ps1'),'utf8');
- assert.match(dialogs,/elseif \(\$what -eq 'connect' -and \$r\.step\) \{ \}\s*\r?\n\s*elseif \(\$what -eq 'connect'\) \{/);
+ assert.match(dialogs,/elseif \(\$what -eq 'connect' -and \$r\.step\) \{\s*\r?\n\s*if \(\$r\.trustError\) \{ \[void\]\[System\.Windows\.Forms\.MessageBox\]::Show\([^\r\n]*\$r\.trustError[^\r\n]*'Warning'\) \}\s*\r?\n\s*\}\s*\r?\n\s*elseif \(\$what -eq 'connect'\) \{/);
+ assert.match(dialogs,/if \(\$a\.state -eq 'not-connected' -or \$a\.state -eq 'needs-action'\) \{ \$buttons \+= ,@\('Connect', 'connect'\) \}/,'Connect repairs every needs action');
  assert.doesNotMatch(dialogs,/One more step in " \+ \$label/,'the old pop-up text is gone');
 });
 test('the app icon has every size Windows asks for and is used by the tray, Start menu, Settings > Apps and windows',()=>{
