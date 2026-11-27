@@ -10,6 +10,7 @@ const poll=setInterval(()=>{tray.pump();try{badge?.tick();}catch{}},20);
 parentPort.on('message',e=>{
  if(e.type==='state')tray.update(e.state);
  else if(e.type==='notification')tray.failure(e.message);
+ else if(e.type==='info')tray.info(e.message);
  else if(e.type==='badge')try{badge?.set(e.state);}catch{}
  else if(e.type==='badgeEnabled')try{badge?.setEnabled(e.enabled);}catch{}
  else if(e.type==='close'){clearInterval(poll);try{badge?.close();}catch{}tray.close();parentPort.close();}

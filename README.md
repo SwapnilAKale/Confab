@@ -5,7 +5,7 @@ Local, offline dictation for Windows, with spoken replies from your coding agent
 - **Dictate anywhere.** Press a hotkey, speak, press again: the text is pasted into the box you were typing in. It is never sent with Enter, so you review it first. Terminals are the exception: there the text is copied to the clipboard instead (see [Terminals](#terminals)).
 - **Talk-back.** Dictate with the talk-back hotkey and the agent's reply to that message is read aloud. Everything else stays silent.
 - **Voice mode.** Talk to your agent hands-free: each thing you say is sent when you pause, the reply is read aloud, and you can interrupt it just by speaking.
-- **Private.** Speech recognition and speech synthesis run on your PC. No audio or text leaves it.
+- **Private.** Speech recognition and speech synthesis run on your PC. No audio or text leaves it. By default Confab checks GitHub once a day for a newer release (fetching only a static version file, with no user or machine data sent); untick **Check for updates** in the tray menu to stay completely offline after setup.
 
 Works with Claude Code, Codex, Cursor, Antigravity and other agents with lifecycle hooks (see [Supported agents](docs/SUPPORTED_AGENTS.md)), and with your own agent through a small HTTP call (see [Custom agents](docs/CUSTOM_AGENTS.md)).
 
@@ -21,7 +21,7 @@ Nothing else: setup brings its own copy of Node.js. You don't need administrator
 
 ## Install
 
-1. Download this folder (for example **Code → Download ZIP** and unzip it) and open it.
+1. Download `Confab-v….zip` from the [latest release](https://github.com/SwapnilAKale/Confab/releases/latest), unzip it, and open the folder. *(If you prefer git, `git clone https://github.com/SwapnilAKale/Confab.git` works too.)*
 2. Click the address bar of the folder window, type `powershell` and press Enter. A PowerShell window opens in the folder.
 3. Run:
    ```powershell
@@ -39,7 +39,7 @@ Setup takes a few minutes. It:
 
 If you start setup from a terminal inside another app (for example a coding agent's built-in terminal), it may continue in a new PowerShell window: some apps give their terminal a private copy of AppData, and Confab installed there could not start with Windows. The new window installs it normally. Its log is `%TEMP%\confab-setup.log`.
 
-After setup you can delete the downloaded folder. Running setup again is safe: it repairs or updates the installation and never duplicates anything.
+After setup you can delete the downloaded folder. Running setup again is safe: it repairs or updates the installation and never duplicates anything. When a newer release is out, Confab notifies you once and shows **Update available (v…)…** in the tray menu; download the new release ZIP and run `.\setup.cmd` to update in place while keeping your settings, speech models and connected agents.
 
 If setup stops partway (a lost connection, a closed window, a full disk), nothing is left half-updated. Each part (the uninstaller, Node.js, the app, its libraries) is prepared beside the installation and swapped in whole, so it is either as it was or completely new. Until setup finishes, Confab does not start; at sign-in it says that setup did not finish. Run `.\setup.cmd` again to complete it, or uninstall it: the uninstaller and its **Settings → Apps** entry are put in place first, so even an unfinished installation can be removed.
 
@@ -61,7 +61,7 @@ Click into any text box, in any app, then:
 - A dictation can last up to 10 minutes. At 10 minutes it stops by itself with three falling tones, and what you said is pasted as usual. Press the hotkey again to continue.
 - Only the opening of a reply is read: its first paragraph, up to 3 sentences. Tick **Read full reply** in the tray to hear the whole reply. Code, file paths, links and JSON are never read out.
 
-**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Read full reply** (off by default: only the opening is read), **Mute voice mode**, **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.
+**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Read full reply** (off by default: only the opening is read), **Mute voice mode**, **Status badge near pointer**, **Pause hotkeys**, **Check for updates**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab** (plus **Update available (v…)…** at the top when a newer release is published). After quitting, start it again from **Start → Confab**.
 
 ### Voice mode
 
@@ -140,6 +140,7 @@ Settings live in `%LOCALAPPDATA%\Confab\resident\settings.json`. The tray writes
 | `talkbackCapMs` | `7200000` | A talk-back still unused after this long is cleared (10 minutes to 24 hours). |
 | `fullReply` | `false` | Read the whole reply instead of its opening (the tray's **Read full reply**). Overrides `spokenSentences` and `spokenChars` while on. |
 | `badge` | `true` | Show the status badge near the pointer. |
+| `checkUpdates` | `true` | Check GitHub once a day for a newer release (fetches only `latest.json`; sends no personal data). Set to `false` or untick **Check for updates** in the tray menu to stay offline after setup. |
 | `vad` | see below | How speech is found in the recording: `{"threshold": 0.3, "preSpeechSeconds": 0.75, "minSilenceSeconds": 0.5}`. |
 
 The `vad` values tune the speech detector (Silero VAD). Leave them alone unless dictation misbehaves, and change one at a time:

@@ -3,8 +3,8 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const profileApi=require('./profile.cjs'),crypto=require('node:crypto');
 // Constant-time bearer check.
 function secureEqual(a,b){if(typeof a!=='string'||typeof b!=='string')return false;const aa=Buffer.from(a),bb=Buffer.from(b);return aa.length===bb.length&&crypto.timingSafeEqual(aa,bb);}
-const {PcController}=require('./controller.cjs'),{LazySpeechEngine}=require('./lazy-engine.cjs'),{TalkbackGate}=require('./talkback.cjs');
-const VERSION='0.8.0';
+const {PcController}=require('./controller.cjs'),{LazySpeechEngine}=require('./lazy-engine.cjs'),{TalkbackGate}=require('./talkback.cjs'),{UpdateChecker,isSafeReleaseUrl}=require('./update-check.cjs');
+const VERSION=require('../../package.json').version;
 const MODE_ACTIONS={'mode:talkback':'talkback','mode:off':'off'};
 // The tray's windows (Connect agents, Diagnose, Uninstall): src/ui/dialogs.ps1 in Windows PowerShell, with a hidden
 // console, running the app's scripts with this process's Node.js. Not detached: Windows PowerShell started without
@@ -14,32 +14,39 @@ function openDialog(root,mode){
  const ps=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
  require('node:child_process').spawn(ps,['-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(root,'src','ui','dialogs.ps1'),'-Mode',mode,'-Node',process.execPath,'-Root',root],{stdio:'ignore',windowsHide:true,cwd:require('node:os').tmpdir()}).unref();
 }
-async function run(root,{profile=profileApi.profileDir(),createTray,createInput,createAudio,engineFactory,idleMs,clock,holdMs=2000,dialog=openDialog}={}){
+function openReleaseUrl(url){
+ if(!isSafeReleaseUrl(url))return;
+ const explorer=path.join(process.env.SystemRoot||'C:\\Windows','explorer.exe');
+ require('node:child_process').spawn(explorer,[url],{stdio:'ignore',windowsHide:true}).unref();
+}
+async function run(root,{profile=profileApi.profileDir(),createTray,createInput,createAudio,engineFactory,idleMs,clock,holdMs=2000,dialog=openDialog,openUrl=openReleaseUrl,updateCheck}={}){
  root=fs.realpathSync(root);profile=path.resolve(profile);const release=require('./single-instance.cjs').acquire(profile);if(!release)return null;
  // The service has no window either: keep hotkeys, audio and the badge off Windows' throttled slow cores (power.cjs).
  const powerThrottlingOff=require('../power.cjs').optOutOfPowerThrottling();
  let token,settings;try{({token}=profileApi.initialize(profile));settings=profileApi.settings(profile);}catch(error){release();throw error;}if(idleMs!==undefined)settings.modelsIdleMs=idleMs;
- const descriptor=path.join(profile,'endpoint.json'),draftDir=path.join(profile,'drafts');let controller,server,timer,closing=false,engine,tray,input,audio;const seen=new Map();
+ const descriptor=path.join(profile,'endpoint.json'),draftDir=path.join(profile,'drafts');let controller,server,timer,closing=false,engine,tray,input,audio,updates;const seen=new Map();
  // Talk-back: replies are spoken only for the turn sent with talk-back dictation (mode 'talkback'),
  // or never (mode 'off'). Prompt text stays in this gate's memory.
  // The cap clearing a forgotten talk-back is logged (no text), so a silent reply can be explained.
  const gate=new TalkbackGate({mode:settings.readMode,capMs:settings.talkbackCapMs,...(clock?{clock}:{}),onExpire:({pending,ageMs})=>logGate({route:'talkback',event:'cap_cleared',detail:pending,ageMs})});
  const sweeper=setInterval(()=>gate.sweep(),60000);sweeper.unref();
  function logGate(entry){try{const file=path.join(profile,'requests.jsonl');fs.appendFileSync(file,JSON.stringify({at:new Date().toISOString(),...entry})+'\n',{mode:0o600});}catch{}}
- async function close(){if(closing)return;closing=true;clearInterval(timer);clearInterval(sweeper);try{if(JSON.parse(fs.readFileSync(descriptor,'utf8')).pid===process.pid)fs.unlinkSync(descriptor);}catch{}if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}try{if(controller)await controller.close();else{input?.close();engine?.close();await audio?.close();await tray?.close();}}finally{release();}}
+ async function close(){if(closing)return;closing=true;clearInterval(timer);clearInterval(sweeper);updates?.close();try{if(JSON.parse(fs.readFileSync(descriptor,'utf8')).pid===process.pid)fs.unlinkSync(descriptor);}catch{}if(server){server.closeAllConnections();await new Promise(r=>server.close(r));}try{if(controller)await controller.close();else{input?.close();engine?.close();await audio?.close();await tray?.close();}}finally{release();}}
  function persist(){profileApi.saveSettings(profile,{...settings,readAloud:settings.readMode!=='off'});}
- function state(){return {pid:process.pid,version:VERSION,powerThrottlingOff,speechPowerThrottlingOff:engine?.power??null,phase:controller?.state||'starting',models:engine?.state||'unloaded',normalizerError:engine?.normalizerError||null,readMode:gate.mode,readAloud:gate.mode!=='off',badge:settings.badge,fullReply:settings.fullReply,talkback:gate.status().pending,hotkeys:input?.hotkeys?Object.fromEntries(Object.entries(input.hotkeys).map(([action,key])=>[action,key.label])):undefined,hotkeysUnavailable:(input?.missing||[]).map(a=>input.hotkeys?.[a]?.label||a),paused:settings.paused,modelsIdleMs:settings.modelsIdleMs,memory:process.memoryUsage(),...controller?.status()};}
+ function state(){return {pid:process.pid,version:VERSION,powerThrottlingOff,speechPowerThrottlingOff:engine?.power??null,phase:controller?.state||'starting',models:engine?.state||'unloaded',normalizerError:engine?.normalizerError||null,readMode:gate.mode,readAloud:gate.mode!=='off',badge:settings.badge,checkUpdates:settings.checkUpdates,updateAvailable:updates?.available||null,fullReply:settings.fullReply,talkback:gate.status().pending,hotkeys:input?.hotkeys?Object.fromEntries(Object.entries(input.hotkeys).map(([action,key])=>[action,key.label])):undefined,hotkeysUnavailable:(input?.missing||[]).map(a=>input.hotkeys?.[a]?.label||a),paused:settings.paused,modelsIdleMs:settings.modelsIdleMs,memory:process.memoryUsage(),...controller?.status()};}
  // Spoken length: the opening (spokenSentences/spokenChars) by default; the whole reply when fullReply is on.
  function spokenLimits(){return settings.fullReply?{sentences:0,chars:0,dateOrder:settings.dateOrder}:{sentences:settings.spokenSentences,chars:settings.spokenChars,dateOrder:settings.dateOrder};}
  function setMode(mode){gate.setMode(mode);settings.readMode=mode;controller.setReadAloud(mode!=='off');}
  async function control(action){
   if(action==='quit'){void close();return;}
   if(DIALOGS.includes(action)){dialog(root,action);return;}
+  if(action==='openUpdate'){if(updates?.available?.url)openUrl(updates.available.url);return;}
   if(MODE_ACTIONS[action])setMode(MODE_ACTIONS[action]);
   else if(action==='readAloud')setMode(gate.mode==='off'?'talkback':'off');
   else if(action==='mute'){controller.toggleMute();tray.update({...state()});return;}
   else if(action==='fullReply'){settings.fullReply=!settings.fullReply;controller.spoken=spokenLimits();}
   else if(action==='badge'){settings.badge=!settings.badge;tray.setBadgeEnabled?.(settings.badge);}
+  else if(action==='checkUpdates'){settings.checkUpdates=!settings.checkUpdates;updates?.setEnabled(settings.checkUpdates);}
   else if(action==='pause'){const paused=!settings.paused;await controller.setPaused(paused);settings.paused=controller.paused;}
   persist();tray.update({...state()});
  }
@@ -143,8 +150,12 @@ async function run(root,{profile=profileApi.profileDir(),createTray,createInput,
    }catch(error){respond(res,400,{accepted:false,reason:error.reason||'invalid_request'},meta);}
   });server.requestTimeout=1000;server.headersTimeout=1000;
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});fs.writeFileSync(descriptor,JSON.stringify({pid:process.pid,port:server.address().port,version:VERSION}),{mode:0o600});
+  if(updateCheck!==false){
+   updates=new UpdateChecker({profile,currentVersion:VERSION,enabled:settings.checkUpdates,...(clock?{clock}:{}),...(updateCheck&&typeof updateCheck==='object'?updateCheck:{}),onUpdate:info=>{tray.update(state());if(info.notify)tray.info?.('Confab v'+info.version+' is available. Open the tray menu to download it.');}});
+   updates.start();
+  }
   tray.update(state());let tick=0;timer=setInterval(()=>{tray.update(state());if(++tick%15===0)try{input.retryHotkeys?.();}catch{}},1000);process.once('SIGINT',()=>void close());process.once('SIGTERM',()=>void close());
-  return {close,controller,engine,tray,server,state,control,profile,gate};
+  return {close,controller,engine,tray,server,state,control,profile,gate,updates};
  }catch(e){await close();throw e;}
 }
 if(require.main===module)run(process.argv[2],{profile:process.argv[3]||profileApi.profileDir()}).catch(e=>{process.stderr.write('Confab resident failed: '+e.message+'\n');process.exitCode=1;});
