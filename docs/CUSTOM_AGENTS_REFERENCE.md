@@ -83,7 +83,7 @@ node -e "require('./client.cjs').status().then(s=>console.log(JSON.stringify(s,n
  "models": "unloaded",
  "readMode": "talkback",
  "talkback": "none",
- "hotkeys": {"capture": "Ctrl+Shift+8", "disarm": "Ctrl+Shift+6", "talkback": "Ctrl+Shift+7"},
+ "hotkeys": {"capture": "Ctrl+Shift+8", "talkback": "Ctrl+Shift+7", "voice": "Ctrl+Shift+6"},
  "paused": false,
  "requests": {"total": 0, "accepted": 0, "rejected": 0, "byReason": {}},
  "lastRejected": null
@@ -345,10 +345,10 @@ There is **one talk-back for the whole PC** at a time: either a draft waiting fo
 |---|---|
 | The answer arrives with the matching turn ID | It is spoken (`queued`). The talk-back is used up. |
 | More than one reply for the turn | The first is spoken, every later one gets `not_talkback`. Send only the final answer. |
-| No reply at all (your agent failed) | The talk-back stays pending until the next talk-back dictation, Ctrl+Shift+6, the [cap](#hotkeys-tray-modes-and-the-cap), or a `detach` for that session. Either speak a short error message as the answer, or send `detach` to release it. |
+| No reply at all (your agent failed) | The talk-back stays pending until the next talk-back dictation, the Cancel key, the [cap](#hotkeys-tray-modes-and-the-cap), or a `detach` for that session. Either speak a short error message as the answer, or send `detach` to release it. |
 | A new message arrives before the previous one is answered | A message that doesn't match changes nothing: the earlier turn keeps the talk-back, and its answer is still spoken when it arrives. A new talk-back message that matches takes over, and the earlier answer becomes silent. |
 | The user dictated with Ctrl+Shift+7 but hasn't sent it, and sends a different message | That turn gets `no_match`, and the draft keeps waiting. While a draft waits and no turn owns the talk-back, every reply is held for 2 seconds (`held`), whatever its turn ID. It is spoken only if a turn matching the draft arrives in that time, for the same `agent` and `session_id` (and the same turn ID, when both have one). Otherwise it stays silent, logged as `held_expired`. |
-| The user presses Ctrl+Shift+6 while your agent works | The talk-back is cancelled and any speech stops. The answer gets `not_talkback`. |
+| The user presses the Cancel key while your agent works | The talk-back is cancelled and any speech stops. The answer gets `not_talkback`. |
 | The answer arrives before its turn (both sent in parallel) | If a draft is waiting, the answer is held for 2 seconds (`held`). It is spoken if its matching turn arrives in that time. |
 | Confab restarts between the turn and the answer | The talk-back is lost. The answer gets `not_talkback`. |
 | A conversation closes | Optionally send `detach`: `confab.event({"event": "detach"}, agent="my-agent", session_id=conversation_id)`. That clears a matched turn for that session. It doesn't clear a draft that hasn't matched yet. |
@@ -381,7 +381,7 @@ Talk-back starts only with Confab's own dictation (Ctrl+Shift+7). Confab can't t
 |---|---|
 | Ctrl+Shift+8 | Plain dictation. Pastes the text. Never makes an answer spoken, and leaves a waiting talk-back as it is. |
 | Ctrl+Shift+7 | Talk-back dictation. Pastes the text and makes it the talk-back draft, replacing an older one. The draft is kept even if the paste falls back to the clipboard. |
-| Ctrl+Shift+6 | Cancel, at any time. Discards a recording in progress, so nothing is pasted. Clears the draft and the matched turn, and stops speech. It never erases text already in your agent's input box: the only keystroke Confab sends to a box is the Ctrl+V of a paste. |
+| Cancel (off by default; `hotkeys.disarm` sets a key) | Cancel, at any time. Discards a recording in progress, so nothing is pasted. Clears the draft and the matched turn, and stops speech. It never erases text already in your agent's input box: the only keystroke Confab sends to a box is the Ctrl+V of a paste. |
 
 The keys can be changed in `settings.json` (`hotkeys`). The full behaviour of each key is under [Hotkeys](DEVELOPER_GUIDE.md#hotkeys) in the developer guide.
 
@@ -519,7 +519,7 @@ Work through this list in order. Every call's `reason` and the `talkback` field 
 5. **The text doesn't match.** The turn answers `no_match` while `status()` shows `talkback: "dictation"`. The request log line shows the similarity: report the user's message alone, not the full prompt (see [How matching works](#how-matching-works)).
 6. **`turn()` is never called, or is called after `speak()`.** The reply answers `not_talkback`, or `held` and later `held_expired` in the log.
 7. **The reply has a different turn ID, `agent` or `session_id` from the turn.** The turn answers `match` but the reply answers `not_talkback`.
-8. **A newer talk-back, Ctrl+Shift+6, `detach` or a Confab restart cleared it.** The reply answers `not_talkback`.
+8. **A newer talk-back, the Cancel key, `detach` or a Confab restart cleared it.** The reply answers `not_talkback`.
 9. **The cap expired.** The log has a `cap_cleared` line.
 10. **The reply answers `queued` but nothing is heard.** It's a sound problem, not an integration one. Check the speakers, the volume and the default playback device. The tray's **Diagnose…** checks that the speech models are present.
 
@@ -531,8 +531,8 @@ Work through this list in order. Every call's `reason` and the `talkback` field 
 | Dictates with Ctrl+Shift+8 | `no_match` | `not_talkback` | no |
 | Dictates with Ctrl+Shift+7 and sends it | `match` | `queued` | yes, once |
 | Dictates with Ctrl+Shift+7 without sending, then types and sends a different message | `no_match` | `held`, then `held_expired` in the log | no |
-| Dictates with Ctrl+Shift+7, presses Ctrl+Shift+6, then sends | `no_match` | `not_talkback` | no |
-| Dictates with Ctrl+Shift+7, sends, presses Ctrl+Shift+6 while the agent works | `match` | `not_talkback` | no |
+| Dictates with Ctrl+Shift+7, presses the Cancel key, then sends | `no_match` | `not_talkback` | no |
+| Dictates with Ctrl+Shift+7, sends, presses the Cancel key while the agent works | `match` | `not_talkback` | no |
 | Tray set to Off, dictates with Ctrl+Shift+7 and sends | `match` | `disabled` | no |
 
 ## FAQ

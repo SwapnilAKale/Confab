@@ -11,6 +11,7 @@ const k=require('koffi'),{EventEmitter}=require('node:events');
 const ole=k.load('ole32.dll');
 const GUID=k.struct('LVW_GUID',{a:'uint32',b:'uint16',c:'uint16',d:k.array('uint8',8)});
 const WFX=k.struct('LVW_WFX',{tag:'uint16',channels:'uint16',rate:'uint32',byteRate:'uint32',align:'uint16',bits:'uint16',extra:'uint16'});
+const PROPS=k.struct('LVW_PROPS',{size:'uint32',offload:'int32',category:'int32',options:'int32'});
 const P={
  getDefault:k.proto('int __stdcall LVW_GetDefault(void *self, int flow, int role, _Out_ void **device)'),
  getId:k.proto('int __stdcall LVW_GetId(void *self, _Out_ void **id)'),
@@ -23,13 +24,19 @@ const P={
  renderRelease:k.proto('int __stdcall LVW_RenderRelease(void *self, uint32 frames, uint32 flags)'),
  captureGet:k.proto('int __stdcall LVW_CaptureGet(void *self, _Out_ void **data, _Out_ uint32 *frames, _Out_ uint32 *flags, void *position, void *qpc)'),
  captureRelease:k.proto('int __stdcall LVW_CaptureRelease(void *self, uint32 frames)'),
- release:k.proto('uint32 __stdcall LVW_Release(void *self)')
+ release:k.proto('uint32 __stdcall LVW_Release(void *self)'),
+ query:k.proto('int __stdcall LVW_Query(void *self, LVW_GUID *iid, _Out_ void **out)'),
+ setProperties:k.proto('int __stdcall LVW_SetProperties(void *self, LVW_PROPS *props)'),
+ setDucking:k.proto('int __stdcall LVW_SetDucking(void *self, int optOut)')
 };
 const fn={coInit:ole.func('int __stdcall CoInitializeEx(void *reserved, uint32 model)'),
  create:ole.func('__stdcall','CoCreateInstance','int',[k.pointer(GUID),'void *','uint32',k.pointer(GUID),k.out(k.pointer('void *'))]),
  free:ole.func('void __stdcall CoTaskMemFree(void *p)')};
 const guid=s=>{const h=s.replace(/[{}-]/g,'');return {a:parseInt(h.slice(0,8),16),b:parseInt(h.slice(8,12),16),c:parseInt(h.slice(12,16),16),d:[...Array(8)].map((_,i)=>parseInt(h.slice(16+i*2,18+i*2),16))};};
-const IID={enumerator:guid('A95664D2-9614-4F35-A746-DE8DB63617E6'),audioClient:guid('1CB9AD4C-DBFA-4c32-B178-C2F568A703B2'),render:guid('F294ACFC-3146-4483-A7BF-ADDCA7C260E2'),capture:guid('C8ADBD64-E71E-48a0-A4DE-185C395CD317')};
+const IID={enumerator:guid('A95664D2-9614-4F35-A746-DE8DB63617E6'),audioClient:guid('1CB9AD4C-DBFA-4c32-B178-C2F568A703B2'),render:guid('F294ACFC-3146-4483-A7BF-ADDCA7C260E2'),capture:guid('C8ADBD64-E71E-48a0-A4DE-185C395CD317'),
+ audioClient2:guid('726778CD-F60A-4EDA-82DE-E47610CD78AA'),session:guid('F4B1A599-7266-4319-A8CA-E70ACB11E8CD'),session2:guid('BFB7FF88-7239-4FC9-8FA2-07C950BE9C6D')};
+// AUDIO_STREAM_CATEGORY: AudioCategory_Communications.
+const CATEGORY_COMMUNICATIONS=3;
 const CLSID_ENUMERATOR=guid('BCDE0395-E52F-467C-8E3D-C4579291692E');
 const AUTOCONVERT=0x80000000|0x08000000, CLSCTX_ALL=23, RENDER=0, CAPTURE=1, SILENT=2;
 const vtable=(object,index)=>k.decode(k.decode(object,'void *'),index*k.sizeof('void *'),'void *');
@@ -44,18 +51,29 @@ class WasapiAudio extends EventEmitter{
  defaultDevice(flow){const device=[null];check(call(this.enumerator,4,P.getDefault,flow,0,device),flow===CAPTURE?'Find microphone':'Find speakers');return device[0];}
  deviceId(device){const id=[null];check(call(device,5,P.getId,id),'Read device id');try{return k.decode(id[0],'char16_t',-1)||'';}finally{fn.free(id[0]);}}
  // Creates and initializes a shared stream (16-bit mono at `rate`, converted by Windows).
- openStream(flow,rate,bufferMs){
-  const device=this.defaultDevice(flow);let client=[null],service=[null];
+ // communications (voice mode microphone): the stream is tagged as a communications stream before it is initialized,
+ // so Windows applies the device's communications processing, which includes acoustic echo cancellation where the
+ // audio driver offers it. That lets voice mode keep the microphone open while a reply plays. The stream is opted
+ // out of Windows' communications ducking, so other sounds are not turned down. `communications` in the result says
+ // whether Windows accepted the tag; whether the driver really cancels echo cannot be read back.
+ openStream(flow,rate,bufferMs,{communications=false}={}){
+  const device=this.defaultDevice(flow);let client=[null],service=[null],tagged=false;
   try{
    const id=this.deviceId(device);
-   check(call(device,3,P.activate,IID.audioClient,CLSCTX_ALL,null,client),'Activate audio stream');
+   if(communications&&call(device,3,P.activate,IID.audioClient2,CLSCTX_ALL,null,client)>=0&&client[0]){
+    tagged=call(client[0],16,P.setProperties,{size:k.sizeof(PROPS),offload:0,category:CATEGORY_COMMUNICATIONS,options:0})>=0;
+   }
+   if(!client[0])check(call(device,3,P.activate,IID.audioClient,CLSCTX_ALL,null,client),'Activate audio stream');
    check(call(client[0],3,P.initialize,0,AUTOCONVERT,bufferMs*10000,0,pcmFormat(rate),null),flow===CAPTURE?'Open microphone':'Open speakers');
+   if(tagged)this.optOutOfDucking(client[0]);
    const frames=[0];check(call(client[0],4,P.count,frames),'Read buffer size');
    check(call(client[0],14,P.getService,flow===CAPTURE?IID.capture:IID.render,service),'Open stream service');
-   return {client:client[0],service:service[0],frames:frames[0],rate,id};
+   return {client:client[0],service:service[0],frames:frames[0],rate,id,communications:tagged};
   }catch(error){release(service[0]);release(client[0]);throw error;}
   finally{release(device);}
  }
+ // IAudioSessionControl2::SetDuckingPreference(TRUE). A failure only means other sounds may be turned down.
+ optOutOfDucking(client){const session=[null],session2=[null];try{if(call(client,14,P.getService,IID.session,session)<0||!session[0])return false;if(call(session[0],0,P.query,IID.session2,session2)<0||!session2[0])return false;return call(session2[0],16,P.setDucking,1)>=0;}catch{return false;}finally{release(session2[0]);release(session[0]);}}
  closeStream(s){if(!s)return;try{call(s.client,11,P.simple);}catch{}release(s.service);release(s.client);}
  // Output streams are kept initialized and stopped; a new default device replaces them.
  output(rate){
@@ -93,12 +111,14 @@ class WasapiAudio extends EventEmitter{
   return {write:pcm=>{if(!ended){chunks.push(pcm);wake?.();}},end:()=>{ended=true;wake?.();return job;}};
  }
  // Microphone: resolves once capture is running; audio follows within about 10 ms.
- start(onData){
+ // options.communications: voice mode's echo-cancelled stream (see openStream). Returns {communications}.
+ start(onData,{communications=false}={}){
   if(this.capture)throw Error('Microphone already recording.');
-  const s=this.openStream(CAPTURE,16000,1000);
+  const s=this.openStream(CAPTURE,16000,1000,{communications});
   try{check(call(s.client,10,P.simple),'Start microphone');}catch(error){this.closeStream(s);throw error;}
   this.capture={...s,onData};
   this.capture.timer=setInterval(()=>{try{this.drain(this.capture);}catch(e){try{this.stop();}catch{}this.emit('error',e);}},10);
+  return {communications:s.communications};
  }
  drain(c){
   if(!c)return;

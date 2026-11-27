@@ -4,6 +4,7 @@ Local, offline dictation for Windows, with spoken replies from your coding agent
 
 - **Dictate anywhere.** Press a hotkey, speak, press again: the text is pasted into the box you were typing in. It is never sent with Enter, so you review it first. Terminals are the exception: there the text is copied to the clipboard instead (see [Terminals](#terminals)).
 - **Talk-back.** Dictate with the talk-back hotkey and the agent's reply to that message is read aloud. Everything else stays silent.
+- **Voice mode.** Talk to your agent hands-free: each thing you say is sent when you pause, the reply is read aloud, and you can interrupt it just by speaking.
 - **Private.** Speech recognition and speech synthesis run on your PC. No audio or text leaves it.
 
 Works with Claude Code, Codex, Cursor, Antigravity and other agents with lifecycle hooks (see [Supported agents](docs/SUPPORTED_AGENTS.md)), and with your own agent through a small HTTP call (see [Custom agents](docs/CUSTOM_AGENTS.md)).
@@ -52,7 +53,7 @@ Click into any text box, in any app, then:
 |---|---|
 | **Ctrl+Shift+8** | **Dictate.** Press, wait for the beep and the red badge, speak, press again. The text is pasted into the box. |
 | **Ctrl+Shift+7** | **Dictate with talk-back.** The same, with a purple badge. When you send that message to a connected agent, its reply is read aloud once. |
-| **Ctrl+Shift+6** | **Cancel.** Discards a recording in progress, cancels a pending talk-back, and stops speech. |
+| **Ctrl+Shift+6** | **Voice mode** (on/off). Talk to the agent hands-free in the box you clicked into. See [Voice mode](#voice-mode). |
 
 - A small badge near the pointer shows what is happening: Starting…, Dictating, Talk-back, Transcribing, Pasted.
 - If you click away while recording, the badge warns you. If the text can't be pasted into the same box, it is copied to the clipboard instead, and a notification tells you.
@@ -60,7 +61,25 @@ Click into any text box, in any app, then:
 - A dictation can last up to 10 minutes. At 10 minutes it stops by itself with three falling tones, and what you said is pasted as usual. Press the hotkey again to continue.
 - Only the opening of a reply is read: its first paragraph, up to 3 sentences. Tick **Read full reply** in the tray to hear the whole reply. Code, file paths, links and JSON are never read out.
 
-**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Read full reply** (off by default: only the opening is read), **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.
+**Tray menu** (click the icon): read-aloud mode (**Talk-back only** or **Off**), **Read full reply** (off by default: only the opening is read), **Mute voice mode**, **Status badge near pointer**, **Pause hotkeys**, **Connect agents…**, **Diagnose…**, **Uninstall Confab…** and **Quit Confab**. After quitting, start it again from **Start → Confab**.
+
+### Voice mode
+
+Voice mode lets you talk with an agent hands-free, like a voice assistant:
+
+1. Click into the agent's message box (the Claude, Codex or Antigravity app, or Cursor's or VS Code's agent panel) and press **Ctrl+Shift+6**. The badge shows **◉ Voice — listening**.
+2. Speak. When you pause, what you said is sent (**➤ Sent**).
+3. The agent's reply is read aloud, and voice mode keeps listening.
+4. To interrupt a reply, just start talking. What you say becomes the next message.
+5. To mute the microphone without leaving voice mode, tap **Ctrl+Shift** (press both, then let go), or click **Mute voice mode** in the tray menu. Replies are still read; tap again to unmute.
+6. Press **Ctrl+Shift+6** again to end voice mode. Confab stops speaking, and anything you were still saying is pasted into the box without being sent, so you can check it first. Voice mode also ends by itself after 10 minutes of silence.
+
+Things to know:
+
+- **Use the agent's app or chat panel.** In the terminal panels of VS Code and Cursor your words are pasted, and you press Enter yourself. Terminal windows get the clipboard, as with dictation.
+- **Stay in the box you started in.** If you click elsewhere, the badge warns you, and what you say goes to the clipboard instead of being sent.
+- **Headphones work best.** On a laptop's own speakers voice mode works too. If replies stop by themselves, or other sounds keep interrupting them, use **Ctrl+Shift+7** (talk-back) instead: you press a key to talk, and the reply is read aloud without listening while it speaks.
+- **One reply at a time.** If you send another message while the agent is still working, only the newest reply is read. With Antigravity and Cursor, wait for the agent to finish before speaking again.
 
 ### Terminals
 
@@ -112,10 +131,12 @@ Settings live in `%LOCALAPPDATA%\Confab\resident\settings.json`. The tray writes
 | Setting | Default | Meaning |
 |---|---|---|
 | `readMode` | `"talkback"` | `"talkback"` or `"off"`. |
-| `hotkeys` | see above | `{"capture": "Ctrl+Shift+8", "talkback": "Ctrl+Shift+7", "disarm": "Ctrl+Shift+6"}`. Ctrl+Shift plus a letter, number, F1–F24 or Space. |
+| `hotkeys` | see above | `{"capture": "Ctrl+Shift+8", "talkback": "Ctrl+Shift+7", "voice": "Ctrl+Shift+6"}`. Ctrl+Shift plus a letter, number, F1–F24 or Space. `"voice": "off"` turns voice mode off. `"disarm": "Ctrl+Shift+0"` adds a Cancel key that discards a recording, cancels a waiting talk-back and stops speech. |
 | `spokenSentences`, `spokenChars` | `3`, `400` | How much of a reply is read. `0` and `0` reads the whole reply. |
 | `dateOrder` | `"dmy"` | How ambiguous dates such as 07/10/2026 are read: day first (`"dmy"`) or month first (`"mdy"`). |
 | `modelsIdleMs` | `900000` | Unload the models after this many idle milliseconds. |
+| `voiceInterrupt` | `true` | `false`: in voice mode, talking no longer stops a reply. |
+| `muteTap` | `true` | `false`: tapping Ctrl+Shift no longer mutes voice mode (the tray item still does). |
 | `talkbackCapMs` | `7200000` | A talk-back still unused after this long is cleared (10 minutes to 24 hours). |
 | `fullReply` | `false` | Read the whole reply instead of its opening (the tray's **Read full reply**). Overrides `spokenSentences` and `spokenChars` while on. |
 | `badge` | `true` | Show the status badge near the pointer. |
@@ -139,7 +160,7 @@ Start with the tray menu → **Diagnose…**. It checks the speech models, the s
 - **Nothing happens on a hotkey:** hotkeys may be paused (tray menu), or another program holds the shortcut. Confab names it in a notification and takes the key back when it is free.
 - **"Failed" badge:** the notification says why, for example an unavailable microphone.
 - **Dictation in a terminal went to the clipboard:** that is by design; Confab does not type into terminal windows (see [Terminals](#terminals)). Paste it with Ctrl+V, or dictate into the agent's app or chat panel.
-- **A reply was not read:** it is read only if you dictated the message with Ctrl+Shift+7 and the agent is **Connected** in **Connect agents…**. An agent that shows **needs restart** or **needs action** isn't running the hook yet.
+- **A reply was not read:** it is read only if you dictated the message with Ctrl+Shift+7, or sent it in voice mode, and the agent is **Connected** in **Connect agents…**. An agent that shows **needs restart** or **needs action** isn't running the hook yet.
 - **Connected, but the agent never calls Confab** (Diagnose shows "No hook call recorded yet"): the agent may still be running without its hooks loaded, for example right after it updated itself. Quit and reopen the agent. In Codex, **Settings → Hooks** should then list three Confab hooks.
 - **Setup stopped:** it says why. Fix that and run it again; it carries on where it stopped.
 - **Logs:** `%LOCALAPPDATA%\Confab\resident` holds `requests.jsonl` (each talk-back decision), `hooks.jsonl` (each hook call) and `resident-error.log`. They never contain your prompts or replies.

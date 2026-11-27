@@ -79,10 +79,10 @@ test('modes: talk-back only gates, off speaks none, and there is no speak-everyt
  assert.throws(()=>gate.setMode('loud'));assert.equal(new TalkbackGate({mode:'bogus'}).mode,'talkback');
 });
 
-test('resident key set: talk-back Ctrl+Shift+7 and Disarm Ctrl+Shift+6; the bridge keeps its three keys',()=>{
+test('resident key set: dictate 8, talk-back 7, voice mode 6, no Cancel key by default; the bridge keeps its three keys',()=>{
  assert.deepEqual(Object.keys(parseHotkeys()),['arm','capture','disarm'],'the base key set has three keys');
- const keys=parseHotkeys({}, {talkback:true});assert.deepEqual(Object.keys(keys),['arm','capture','disarm','talkback']);
- assert.deepEqual(Object.values(keys).map(k=>k.label),[null,'Ctrl+Shift+8','Ctrl+Shift+6','Ctrl+Shift+7'],'resident: arm off by default, Disarm Ctrl+Shift+6');assert.equal(parseHotkeys({arm:'Ctrl+Shift+9'},{talkback:true}).arm.label,'Ctrl+Shift+9','settings can turn the arm key back on');assert.equal(parseHotkeys().disarm.label,'Ctrl+Shift+0','bridge keeps Ctrl+Shift+0');
+ const keys=parseHotkeys({}, {talkback:true});assert.deepEqual(Object.keys(keys),['arm','capture','disarm','talkback','voice']);
+ assert.deepEqual(Object.values(keys).map(k=>k.label),[null,'Ctrl+Shift+8',null,'Ctrl+Shift+7','Ctrl+Shift+6'],'resident: arm and Cancel off by default, voice mode Ctrl+Shift+6');assert.equal(parseHotkeys({disarm:'Ctrl+Shift+0'},{talkback:true}).disarm.label,'Ctrl+Shift+0','settings can add a Cancel key');assert.equal(parseHotkeys({arm:'Ctrl+Shift+9'},{talkback:true}).arm.label,'Ctrl+Shift+9','settings can turn the arm key back on');assert.equal(parseHotkeys().disarm.label,'Ctrl+Shift+0','bridge keeps Ctrl+Shift+0');
  assert.throws(()=>parseHotkeys({talkback:'Ctrl+Shift+8'},{talkback:true}),/different shortcut/);
  assert.throws(()=>parseHotkeys({talkback:'Ctrl+Shift+7'}),/arm, capture or disarm/);
  assert.equal(parseHotkeys({talkback:'Ctrl+Shift+T'},{talkback:true}).talkback.label,'Ctrl+Shift+T');

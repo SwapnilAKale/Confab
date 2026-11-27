@@ -16,10 +16,12 @@ class WindowsAudio extends EventEmitter{
  open(dir,rate){const output=[null];this.check(this.fn[dir+'Open'](output,0xffffffff,{tag:1,channels:1,rate,byteRate:rate*2,align:2,bits:16,extra:0},0,0,0),'Open '+dir);return output[0];}
  block(bytes){const pointer=this.k.alloc(this.header,1);this.k.encode(pointer,this.header,{data:bytes,length:bytes.length,recorded:0,user:0,flags:0,loops:0,next:null,reserved:0});return {pointer,bytes};}
  async probe(){const mic=this.open('In',16000);this.check(this.fn.InClose(mic),'Close microphone probe');const out=this.open('Out',24000);this.check(this.fn.OutClose(out),'Close speaker probe');}
+ // WinMM has no communications stream: options are ignored and start() reports {communications:false}.
  start(onData){if(this.capture)throw Error('Microphone already recording.');const capture=this.capture={handle:this.open('In',16000),blocks:[],queued:[],onData};
   try{for(let i=0;i<16;i++){const b=this.block(Buffer.alloc(3200));capture.blocks.push(b);this.check(this.fn.InPrepareHeader(capture.handle,b.pointer,this.k.sizeof(this.header)),'Prepare microphone');this.check(this.fn.InAddBuffer(capture.handle,b.pointer,this.k.sizeof(this.header)),'Queue microphone');capture.queued.push(b);}
    this.check(this.fn.InStart(capture.handle),'Start microphone');capture.timer=setInterval(()=>{try{this.drain(capture,true);}catch(e){try{this.stop();}catch{}this.emit('error',e);}},10);
   }catch(e){this.stop();throw e;}
+  return {communications:false};
  }
  drain(capture,requeue){
   // Buffers must be consumed in driver queue order, including after a wrap/reset.

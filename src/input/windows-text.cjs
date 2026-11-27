@@ -1,13 +1,34 @@
 'use strict';
 const {EventEmitter}=require('node:events');
 const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+// Voice mode: how long after a send a changed window title is taken as the app naming the chat (see boxDifference).
+// Apps name a new chat within a few seconds; only the first title change after each send is accepted.
+const RETITLE_MS=15000;
+// Voice mode's mute key: a tap of Ctrl+Shift on their own. RegisterHotKey cannot register modifiers alone, so the key
+// states are sampled every TAP_POLL_MS while voice mode is on (no keyboard hook). A tap: Ctrl and Shift both held, then
+// both released within TAP_MAX_MS of being held together, with no other key or mouse button in between (so every
+// Ctrl+Shift+key shortcut, Ctrl+Shift+click and Ctrl+Shift+arrow selection is not a tap).
+const TAP_POLL_MS=20,TAP_MAX_MS=800;
+class ChordTap{
+  constructor(){this.reset();}
+  reset(){this.since=null;this.spoiled=false;this.any=false;}
+  // One sample {ctrl,shift,other} at time `now`; returns true when it completes a tap.
+  sample({ctrl,shift,other},now){
+    if(!ctrl&&!shift){const tap=this.since!==null&&!this.spoiled&&now-this.since<=TAP_MAX_MS;this.reset();return tap;}
+    if(other)this.spoiled=true;
+    if(ctrl&&shift&&this.since===null)this.since=now;
+    if(this.since!==null&&now-this.since>TAP_MAX_MS)this.spoiled=true;
+    return false;
+  }
+}
 class WindowsTextInput extends EventEmitter {
   // partial (resident only): keep the shortcuts that registered, report the rest in 'hotkeys'
   // events, and retry them with retryHotkeys(). Without it any conflict closes the input, as before.
   // immediate (resident only): a dictation key starts recording at once; the focused box is
   // checked in the background and again before pasting, instead of blocking the start.
-  constructor({api,accessibility,shortcuts=true,hotkeys,talkback=false,partial=false,immediate=false,restoreClipboard=false,wait=delay}={}){
-    super();this.restoreClipboard=restoreClipboard;this.partial=partial;this.immediate=immediate;this.missing=[];this.on('error',()=>{});this.hotkeys=require('./hotkeys.cjs').parseHotkeys(hotkeys,{talkback});this.wait=wait;this.shortcutQueue=Promise.resolve();
+  // muteTap (resident only): in voice mode, a tap of Ctrl+Shift emits 'mute' (see ChordTap).
+  constructor({api,accessibility,shortcuts=true,hotkeys,talkback=false,partial=false,immediate=false,restoreClipboard=false,wait=delay,muteTap=false}={}){
+    super();this.muteTap=muteTap;this.restoreClipboard=restoreClipboard;this.partial=partial;this.immediate=immediate;this.missing=[];this.on('error',()=>{});this.hotkeys=require('./hotkeys.cjs').parseHotkeys(hotkeys,{talkback});this.wait=wait;this.shortcutQueue=Promise.resolve();
     if(!api&&process.platform!=='win32')throw Error('Focused-app dictation currently requires Windows.');
     this.api=api||require('./windows-api.cjs').createWindowsApi();
     try{this.accessibility=accessibility||new (require('./accessibility.cjs').Accessibility)();}
@@ -18,7 +39,7 @@ class WindowsTextInput extends EventEmitter {
     const available=await this.accessibility.ready;
     if(!available||this.closed){this.close();return {failed:true};}
     const keys=shortcuts?this.api.registerHotkeys(this.hotkeys):Object.keys(this.hotkeys).map(()=>true);
-    const started={eventName:'started',armHotkey:keys[0],captureHotkey:keys[1],disarmHotkey:keys[2],...(this.hotkeys.talkback?{talkbackHotkey:keys[3]}:{})};
+    const started={eventName:'started',armHotkey:keys[0],captureHotkey:keys[1],disarmHotkey:keys[2],...(this.hotkeys.talkback?{talkbackHotkey:keys[3]}:{}),...(this.hotkeys.voice?{voiceHotkey:keys[4]}:{})};
     const conflicts=Object.values(this.hotkeys).filter((_,i)=>!keys[i]).map(item=>item.label);
     if(conflicts.length&&!this.partial){this.close();return {...started,failed:true,reason:'shortcut_conflict',conflicts};}
     if(conflicts.length){this.missing=Object.keys(this.hotkeys).filter((_,i)=>!keys[i]);started.conflicts=conflicts;}
@@ -27,7 +48,22 @@ class WindowsTextInput extends EventEmitter {
   }
   async hotkey(id){
     if(this.closed||this.paused)return;
+    // Voice mode (resident only): the voice key toggles hands-free turns in the focused box. Stopping is always
+    // possible, even while a turn is being pasted.
+    const voiceKey=id===5&&this.immediate&&this.hotkeys.voice&&!this.hotkeys.voice.off;
+    // In voice mode any dictation key ends it (the voice key, or 8 and 7, which a user may press out of habit), even
+    // while a turn is being pasted.
+    if(this.voice&&(voiceKey||id===2||(id===4&&this.hotkeys.talkback))){this.voice=false;this.unwatchFocus();this.emit('voice',{action:'stop'});return;}
+    // Cancel ends voice mode even mid-paste; clearing the target stops that paste before its Enter.
+    if(id===3&&this.immediate&&this.voice){const recording=this.recording;this.unwatchFocus();this.target=null;this.recording=false;this.voice=false;this.emit('disarmed',{recording,voice:true});return;}
     if(this.busy){if(this.immediate)this.emit('press',{ignored:'insertion_busy'});return;}
+    if(voiceKey){
+      if(this.recording){this.emit('press',{ignored:'recording'});return;}
+      const result=await this.arm();
+      if(this.closed||this.paused)return;
+      if(result.status!=='armed'){this.emit('arm',{result});return;}
+      this.voice=true;this.voiceSentAt=null;this.watchFocus();this.watchMuteTap();this.emit('voice',{action:'start'});return;
+    }
     if(this.immediate&&(id===2||(id===4&&this.hotkeys.talkback))){
       // Start (or stop) now; never wait for UI Automation before giving feedback.
       this.recording=!this.recording;
@@ -35,7 +71,7 @@ class WindowsTextInput extends EventEmitter {
       else{this.unwatchFocus();this.emit('capture',{action:'end'});}
       return;
     }
-    if(this.immediate&&id===3){const recording=this.recording;this.unwatchFocus();this.target=null;this.recording=false;this.emit('disarmed',{recording});return;}
+    if(this.immediate&&id===3){const recording=this.recording,voice=!!this.voice;this.unwatchFocus();this.target=null;this.recording=false;this.voice=false;this.emit('disarmed',{recording,voice});return;}
     if(id===1){if(this.immediate)this.emit('press',{action:'arm'});this.emit('arm',{result:await this.arm(),...(this.immediate?{acknowledged:true}:{})});}
     else if(id===2||(id===4&&this.hotkeys.talkback)){
       // Either dictation key stops an active recording; the key that started it sets its mode.
@@ -53,7 +89,7 @@ class WindowsTextInput extends EventEmitter {
   }
   setPaused(paused){
     if(this.closed)return false;if(this.paused===paused)return true;
-    if(paused){this.paused=true;this.missing=[];this.api.unregisterHotkeys();this.api.pollHotkeys();this.target=null;return true;}
+    if(paused){this.paused=true;this.voice=false;this.unwatchFocus();this.missing=[];this.api.unregisterHotkeys();this.api.pollHotkeys();this.target=null;return true;}
     const keys=this.api.registerHotkeys(this.hotkeys);
     if(this.partial){this.paused=false;this.missing=Object.keys(this.hotkeys).filter((_,i)=>!keys[i]);if(this.missing.length)this.emit('hotkeys',{missing:this.missing.map(a=>this.hotkeys[a].label),restored:[]});return true;}if(keys.some(ok=>!ok)){this.api.unregisterHotkeys();return false;}this.paused=false;return true;
   }
@@ -96,7 +132,13 @@ class WindowsTextInput extends EventEmitter {
     if(snapshot.window!==target.window)return 'window';
     if(snapshot.runtimeId!==target.runtimeId)return 'element';
     if(target.document&&(snapshot.documentId??null)!==target.document.id)return 'document';
-    if(target.document&&(snapshot.documentName??null)!==target.document.name)return 'document_title';
+    if(target.document&&(snapshot.documentName??null)!==target.document.name){
+      // Voice mode: an app names a new chat after its first message (the Claude app retitles "New chat"), so a title
+      // change within RETITLE_MS of our own send, in the same window, element and document, is the same chat: the new
+      // title is adopted, once per send. Any other title change (a second one, or a later one) means another chat.
+      if(this.voice&&this.voiceSentAt&&Date.now()-this.voiceSentAt<=RETITLE_MS){target.document.name=snapshot.documentName??null;this.voiceSentAt=null;return null;}
+      return 'document_title';
+    }
     return null;
   }
   // Resident mode: while recording, report whether focus is in the target box ('focus' events on change).
@@ -112,10 +154,18 @@ class WindowsTextInput extends EventEmitter {
     },100);this.focusWatch.unref?.();
   }
   unwatchFocus(){clearInterval(this.focusWatch);this.focusWatch=null;}
+  // Voice mode: watches for the Ctrl+Shift mute tap until voice mode ends.
+  watchMuteTap(){
+    clearInterval(this.tapWatch);this.tapWatch=null;if(!this.muteTap||!this.api.modifierChord)return;const tap=new ChordTap();
+    this.tapWatch=setInterval(()=>{if(!this.voice||this.closed||this.paused){clearInterval(this.tapWatch);this.tapWatch=null;return;}
+      let sample;try{sample=this.api.modifierChord();}catch{return;}if(tap.sample(sample,Date.now()))this.emit('mute',{action:'toggle'});},TAP_POLL_MS);this.tapWatch.unref?.();
+  }
   async insert(text,autoSend=false){
     if(this.busy)return {status:'rejected',reason:'insertion_busy'};
     // Immediate mode: use the box checked at the start, or check the box focused now.
     if(this.immediate&&!this.target){await this.armed;if(!this.target){const result=await this.arm();if(result.status!=='armed'){const detail=WindowsTextInput.refusal(result);return {status:'rejected',reason:result.reason||'not_editable',...(detail?{detail}:{})};}}}
+    // A voice-mode send: if voice mode ends while this paste runs, the words stay pasted and Enter is not pressed.
+    const voiceSend=autoSend===true&&this.voice===true;
     this.busy=true;let dispatched=false,savedClipboard,stage;
     try{
       if(typeof text!=='string'||!text.trim()||text.length>20000)return {status:'rejected',reason:'invalid_text'};
@@ -159,20 +209,24 @@ class WindowsTextInput extends EventEmitter {
       let clipboardRestored;
       if(this.restoreClipboard){stage='restore_clipboard';clipboardRestored=this.api.restoreClipboard(savedClipboard,sequence);}
       if(autoSend===true){
+        if(voiceSend&&!this.voice)return {status:'inserted',submitted:false,reason:'voice_ended',...(this.restoreClipboard?{clipboardRestored}:{})};
         reason=this.guard();if(reason)return {status:'inserted',submitted:false,reason:'enter_refused'};
         if(!this.api.enter())return {status:'uncertain',reason:'enter_unconfirmed'};
+        this.voiceSentAt=Date.now();
       }
       return {status:'inserted',submitted:autoSend===true,...(this.restoreClipboard?{clipboardRestored}:{}),reason:autoSend===true?'enter_queued':'review_in_app'};
     }catch(error){return {status:dispatched?'uncertain':'rejected',reason:['clipboard_busy','clipboard_changed','clipboard_preserve_failed','clipboard_format_unsupported'].includes(error.code)?error.code:'native_check_failed',...(stage&&this.restoreClipboard?{stage}:{})};}
     finally{if(savedClipboard)this.api.releaseClipboard(savedClipboard);this.busy=false;}
   }
   async request(action){
-    if(action==='capture-reset'){this.recording=false;this.unwatchFocus();return {status:'reset'};}
+    // In voice mode the target box and its focus watch stay until voice mode ends ('voice-reset').
+    if(action==='capture-reset'){this.recording=false;if(!this.voice)this.unwatchFocus();return {status:'reset'};}
+    if(action==='voice-reset'){this.voice=false;this.unwatchFocus();return {status:'reset'};}
     if(action==='arm')return this.arm();
     if(action==='disarm'){this.target=null;this.recording=false;return {status:'disarmed'};}
     if(action==='status')return {status:this.guard()||'ready'};
     return {status:'rejected',reason:'unsupported_action'};
   }
-  close(){if(this.closed)return;this.closed=true;clearInterval(this.poll);this.unwatchFocus();this.target=null;this.accessibility.close();this.api.close();}
+  close(){if(this.closed)return;this.closed=true;clearInterval(this.poll);clearInterval(this.tapWatch);this.unwatchFocus();this.target=null;this.accessibility.close();this.api.close();}
 }
-module.exports={WindowsTextInput};
+module.exports={WindowsTextInput,ChordTap};

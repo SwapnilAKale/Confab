@@ -146,3 +146,11 @@ test('native PC records failure stage without exposing clipboard or field conten
  const {native,api,state}=await setup(t);native.restoreClipboard=true;api.saveClipboard=()=>{throw Error('private clipboard content');};
  const result=await native.insert('private draft');assert.deepEqual(result,{status:'rejected',reason:'native_check_failed',stage:'preserve_clipboard'});assert.equal(state.pastes,0);assert.equal(JSON.stringify(result).includes('private'),false);
 });
+test('voice mode ended while its turn is being pasted: the words stay pasted and Enter is not pressed',async t=>{
+  const {native,state,api}=await setup(t);
+  native.voice=true;const paste=api.paste;api.paste=()=>{const ok=paste();native.voice=false;return ok;};// the voice key is pressed mid-paste
+  const result=await native.insert('last words',true);
+  assert.equal(result.status,'inserted');assert.equal(result.submitted,false);assert.equal(result.reason,'voice_ended');
+  assert.equal(state.enters,0,'no Enter');assert.equal(state.value,'last words','still pasted');
+  api.paste=paste;native.voice=true;assert.equal((await native.insert(' next',true)).submitted,true,'while voice mode is on, a turn is still sent');assert.equal(state.enters,1);
+});

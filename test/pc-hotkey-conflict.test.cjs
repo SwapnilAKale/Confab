@@ -15,8 +15,8 @@ test('three-key input without talk-back: any conflict fails the whole input and 
 test('resident keeps the shortcuts it can register, reports the rest, and reclaims them when freed',async t=>{
  const api=fakeApi(new Set(['Ctrl+Shift+9','Ctrl+Shift+8','Ctrl+Shift+0']));
  const input=new WindowsTextInput({api,accessibility,talkback:true,partial:true});t.after(()=>input.close());
- const started=await input.ready;assert.notEqual(started.failed,true);assert.deepEqual(started.conflicts,['Ctrl+Shift+8'],'only Dictate collides: the resident no longer registers Ctrl+Shift+9 and Disarm is Ctrl+Shift+6');
- assert.deepEqual([...api.mine],['Ctrl+Shift+6','Ctrl+Shift+7']);assert.deepEqual(input.missing,['capture']);
+ const started=await input.ready;assert.notEqual(started.failed,true);assert.deepEqual(started.conflicts,['Ctrl+Shift+8'],'only Dictate collides: the resident registers neither Ctrl+Shift+9 nor a Cancel key by default');
+ assert.deepEqual([...api.mine],['Ctrl+Shift+7','Ctrl+Shift+6']);assert.deepEqual(input.missing,['capture']);
  const events=[];input.on('hotkeys',e=>events.push(e));
  assert.deepEqual(input.retryHotkeys(),[],'still held');assert.deepEqual(events,[]);
  api.held.delete('Ctrl+Shift+8');

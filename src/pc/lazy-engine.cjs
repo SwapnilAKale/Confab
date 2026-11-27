@@ -6,13 +6,15 @@ class LazySpeechEngine extends EventEmitter{
  touch(){this.lastUsed=this.clock();}
  // Why replies are spoken without number/date expansion, or null (see NativeSpeechEngine).
  get normalizerError(){return this.engine?.normalizerError??null;}
+ // Which speech processes escaped Windows power throttling (see NativeSpeechEngine.power); null while unloaded.
+ get power(){return this.engine?.power?{...this.engine.power}:null;}
  async warmup(){this.touch();if(this.closed)throw Error('Speech engine closed.');if(this.state==='loaded')return;if(this.loading)return this.loading;
   this.state='loading';this.emit('state',this.state);let engine;try{engine=this.engine=this.factory();}catch(error){this.state='error';this.emit('state',this.state);throw error;}
   this.loading=(async()=>{try{await engine.warmup();if(this.closed||this.engine!==engine)return;this.state='loaded';this.touch();this.emit('state',this.state);}catch(e){engine.close();if(this.engine===engine)this.engine=null;this.state='error';this.emit('state',this.state);throw e;}finally{this.loading=null;}})();return this.loading;
  }
  // Open capture immediately; bounded PCM stays in memory while models load.
- async start(id,emit){if(this.capture)throw Error('Capture already open.');this.touch();const c=this.capture={id,emit,queue:[],bytes:0,ended:false};void this.pump(c).catch(e=>{if(this.capture===c){this.capture=null;emit({type:'error',message:e.message});}});}
- async pump(c){try{await this.warmup();}catch(e){throw Error('Speech models could not load: '+(e.message||'unknown error'));}if(this.closed||this.capture!==c)return;const engine=this.engine;await engine.start(c.id,e=>{if(this.capture!==c)return;c.emit(e);if(['capture-done','error'].includes(e.type)){this.capture=null;this.touch();}});
+ async start(id,emit,options={}){if(this.capture)throw Error('Capture already open.');this.touch();const c=this.capture={id,emit,options,queue:[],bytes:0,ended:false};void this.pump(c).catch(e=>{if(this.capture===c){this.capture=null;emit({type:'error',message:e.message});}});}
+ async pump(c){try{await this.warmup();}catch(e){throw Error('Speech models could not load: '+(e.message||'unknown error'));}if(this.closed||this.capture!==c)return;const engine=this.engine;await engine.start(c.id,e=>{if(this.capture!==c)return;c.emit(e);if(['capture-done','error'].includes(e.type)){this.capture=null;this.touch();}},c.options);
   while(!this.closed&&this.capture===c){if(c.queue.length&&(engine.pendingSamples||0)<16000*20){const pcm=c.queue.shift();c.bytes-=pcm.length;engine.audio(c.id,pcm);}else if(!c.queue.length&&c.ended){engine.end(c.id);return;}else await delay(5);}
  }
  audio(id,pcm){const c=this.capture;if(!c||c.id!==id)throw Error('Capture closed.');c.bytes+=pcm.length;if(c.bytes>16000*2*125)throw Error('Recording exceeded the capture buffer.');c.queue.push(pcm);this.touch();}

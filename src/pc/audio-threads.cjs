@@ -18,10 +18,11 @@ class Channel{
 class ThreadedAudio extends EventEmitter{
  constructor(){super();this.on('error',()=>{});this.streams=0;
   this.playback=new Channel(e=>{if(e.type==='error')this.emit('error',Object.assign(Error(e.message),{code:'native_audio'}));},'playback');
-  this.capture=new Channel(e=>{if(e.type==='pcm')this.onData?.(Buffer.from(e.data));else if(e.type==='error')this.emit('error',Object.assign(Error(e.message),{code:'native_audio'}));},'capture');}
+  this.capture=new Channel(e=>{if(e.type==='pcm')this.onData?.(Buffer.from(e.data));else if(e.type==='capture-mode')this.captureMode={communications:e.communications===true};else if(e.type==='error')this.emit('error',Object.assign(Error(e.message),{code:'native_audio'}));},'capture');}
  async probe(){await this.capture.call('probe');}
- // Resolves once the microphone is recording; rejects if it cannot be opened.
- start(onData){this.onData=onData;return this.capture.call('start');}
+ // Resolves once the microphone is recording; rejects if it cannot be opened. options.communications: voice mode's
+ // echo-cancelled stream; captureMode then says whether Windows accepted it.
+ start(onData,options={}){this.onData=onData;this.captureMode=null;return this.capture.call('start',[options]);}
  // Resolves after the last captured audio has been delivered.
  stop(){return this.capture.call('stop');}
  play(pcm,rate){return this.playback.call('play',[pcm,rate]);}
@@ -45,7 +46,7 @@ if(!threads.isMainThread&&threads.workerData?.audioThread){
  audio.on('error',e=>port.postMessage({type:'error',message:e.message}));
  const ops={
   probe:()=>audio.probe(),
-  start:()=>audio.start(pcm=>{const copy=Uint8Array.from(pcm);port.postMessage({type:'pcm',data:copy},[copy.buffer]);}),
+  start:options=>{const mode=audio.start(pcm=>{const copy=Uint8Array.from(pcm);port.postMessage({type:'pcm',data:copy},[copy.buffer]);},options||{});port.postMessage({type:'capture-mode',communications:mode?.communications===true});},
   stop:()=>audio.stop(),
   play:(pcm,rate)=>audio.play(Buffer.from(pcm),rate),
   playWav:wav=>audio.playWav(Buffer.from(wav)),

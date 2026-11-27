@@ -275,7 +275,7 @@ foreach ($agent in $found) {
 
 Write-Host ''
 Write-Host 'Confab is installed.' -ForegroundColor Green
-Write-Host '  Ctrl+Shift+8  dictate          Ctrl+Shift+7  dictate with talk-back          Ctrl+Shift+6  cancel'
+Write-Host '  Ctrl+Shift+8  dictate          Ctrl+Shift+7  dictate with talk-back          Ctrl+Shift+6  voice mode'
 Write-Host '  Tray icon menu: Connect agents, Diagnose, Uninstall.'
 Write-Host '  To remove it later: tray menu > Uninstall Confab, or Settings > Apps > Installed apps > Confab > Uninstall.'
 Close-Setup 0

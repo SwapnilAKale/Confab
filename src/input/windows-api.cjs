@@ -59,6 +59,11 @@ function createWindowsApi(){
     unlocked(){const desktop=openDesktop(0,0,1);if(!desktop)return false;try{const buffer=Buffer.alloc(512),needed=[0];return !!desktopInfo(desktop,2,buffer,buffer.length,needed)&&buffer.toString('utf16le').split('\0')[0]==='Default';}finally{closeDesktop(desktop);}},
     // Only sampled during explicit insertion checks; no key event capture/log.
     keysDown(){for(let key=1;key<255;key++)if(keyState(key)&0x8000)return true;return false;},
+    // Voice mode's mute tap: whether Ctrl and Shift are held, and whether anything else is (any other key or a mouse
+    // button). Sampled only while voice mode is on; which other key is held is never read or kept.
+    modifierChord(){const down=key=>(keyState(key)&0x8000)!==0;let other=false;
+     for(let key=1;key<255&&!other;key++){if(key===0x10||key===0x11||(key>=0xa0&&key<=0xa3))continue;if(down(key))other=true;}
+     return {ctrl:down(0x11),shift:down(0x10),other};},
     registerHotkeys(definitions){return Object.values(definitions).map(({vk,modifiers,off},i)=>{if(off)return true;const id=0x4c01+i,ok=!!register(window,id,modifiers,vk);if(ok)registrations.push(id);return ok;});},
     // Registers one action at its positional id (same ids as registerHotkeys), for retrying a conflict.
     registerHotkey(index,{vk,modifiers,off}){if(off)return true;const id=0x4c01+index;if(registrations.includes(id))return true;const ok=!!register(window,id,modifiers,vk);if(ok)registrations.push(id);return ok;},

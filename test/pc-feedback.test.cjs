@@ -20,7 +20,7 @@ test('immediate input: Disarm reports whether a recording was cancelled; a press
  const input=new WindowsTextInput({api:slowApi(),accessibility:slowAccessibility(0),talkback:true,immediate:true,shortcuts:false});t.after(()=>input.close());await input.ready;
  const events=[];input.on('disarmed',e=>events.push(['disarmed',e]));input.on('press',e=>events.push(['press',e]));
  await input.hotkey(2);await input.hotkey(3);await input.hotkey(3);
- assert.deepEqual(events,[['disarmed',{recording:true}],['disarmed',{recording:false}]]);assert.equal(input.recording,false);
+ assert.deepEqual(events,[['disarmed',{recording:true,voice:false}],['disarmed',{recording:false,voice:false}]]);assert.equal(input.recording,false);
  input.busy=true;await input.hotkey(2);assert.deepEqual(events.at(-1),['press',{ignored:'insertion_busy'}]);assert.equal(input.recording,false);
 });
 test('immediate input: a box that was not editable at the start is checked again before pasting',async t=>{

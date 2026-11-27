@@ -1,10 +1,13 @@
 require('./no-network.cjs');
+// Speech runs in windowless worker processes; without this Windows throttles them to the slow cores (see power.cjs).
+const powerThrottlingOff=require('./power.cjs').optOutOfPowerThrottling();
 const path=require('node:path');
 const mode=process.argv[2],modelRoot=process.argv[3];
-const send=event=>{if(process.connected)process.send(event,error=>{if(error)process.exit(0);});};
+// Every 'ready' says whether this process escaped Windows power throttling, so the service can report it.
+const send=event=>{if(event?.type==='ready')event={...event,powerThrottlingOff};if(process.connected)process.send(event,error=>{if(error)process.exit(0);});};
 const began=performance.now();
 if(mode==='vad'){
- const context=process.env.VOICE_TURN_CONTEXT==='0'?null:new (require('./context-turns.cjs').ContextTurns)({overlapSeconds:require('./turn-settings.cjs').resolveOverlap(),previews:process.env.VOICE_LIVE_PREVIEWS!=='0',settle:require('./turn-settings.cjs').resolveSettle(process.env.VOICE_TURN_SETTLE)});
+ const context=process.env.VOICE_TURN_CONTEXT==='0'?null:new (require('./context-turns.cjs').ContextTurns)({overlapSeconds:require('./turn-settings.cjs').resolveOverlap(),previews:process.env.VOICE_LIVE_PREVIEWS!=='0',settle:require('./turn-settings.cjs').resolveSettle(process.env.VOICE_TURN_SETTLE,{voice:process.env.VOICE_TURN_VOICE==='1'})});
  const detector=require('./silero-segmenter.cjs').createSegmenter(modelRoot,require('./vad-settings.cjs').fromEnv());send({type:'ready'});
  process.on('message',event=>{try{
   if(event.type==='audio'){const samples=new Float32Array(event.samples);if(!samples.every(Number.isFinite))throw Error('Invalid audio samples');const events=detector.push(samples);send({type:'vad-events',events:context?context.push(samples,events):events,consumed:true,sampleCount:samples.length});}

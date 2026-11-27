@@ -53,7 +53,15 @@ const STATES = {
  'not-pasted':{label:'⧉ Not pasted — copied', color:[160,90,20]},
  failed:{label:'✕ Failed', color:[110,20,20]},
  preparing:{label:'… Preparing reply', color:[20,110,120]},
- speaking:{label:'♪ Speaking', color:[20,130,140]}
+ speaking:{label:'♪ Speaking', color:[20,130,140]},
+ // Voice mode: listening, reading a reply (talk to interrupt, or only the keys when echo cancellation is off), sent.
+ voice:{label:'◉ Voice — listening', color:[0,120,90]},
+ 'voice-speaking':{label:'♪ Speaking — talk to interrupt', color:[20,130,140]},
+ 'voice-speaking-keys':{label:'♪ Speaking', color:[20,130,140]},
+ 'voice-focus-moved':{label:'⚠ Focus moved — click back into the box to keep talking', color:[214,120,0]},
+ 'voice-muted':{label:'⊘ Voice — muted (tap Ctrl+Shift to unmute)', color:[90,90,100]},
+ 'voice-speaking-muted':{label:'♪ Speaking — mic muted', color:[20,130,140]},
+ sent:{label:'➤ Sent', color:[30,140,70]}
 };
 function describe(state) {
  if (!state || state.name === 'idle' || !STATES[state.name]) return null;
