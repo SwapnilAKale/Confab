@@ -70,7 +70,7 @@ Voice mode lets you talk with an agent hands-free, like a voice assistant:
 1. Click into the agent's message box (the Claude, Codex or Antigravity app, or Cursor's or VS Code's agent panel) and press **Ctrl+Shift+6**. The badge shows **◉ Voice — listening**.
 2. Speak. When you pause, what you said is sent (**➤ Sent**).
 3. The agent's reply is read aloud, and voice mode keeps listening.
-4. To interrupt a reply, just start talking. What you say becomes the next message.
+4. To interrupt a reply, just start talking. What you say becomes the next message. If nothing was said (a "hmm" or a sound), the reply carries on from the sentence where it stopped.
 5. To mute the microphone without leaving voice mode, tap **Ctrl+Shift** (press both, then let go), or click **Mute voice mode** in the tray menu. Replies are still read; tap again to unmute.
 6. Press **Ctrl+Shift+6** again to end voice mode. Confab stops speaking, and anything you were still saying is pasted into the box without being sent, so you can check it first. Voice mode also ends by itself after 10 minutes of silence.
 

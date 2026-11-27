@@ -389,3 +389,55 @@ test('a turn left unsent because voice mode ended during its paste shows no "not
  refused.state.emit(turn('one'));await wait(10);refused.state.emit(turn('two',3,4));await wait(10);
  assert.equal(refused.state.notices.filter(n=>/did not send them/.test(n)).length,1,'told once that it was not sent');
 });
+
+// A reply that really plays: each piece is synthesized as 20 ms of silence per character and plays for that long.
+function playingReplies(c,state){
+ const wav=sec=>{const n=Math.round(sec*16000),out=Buffer.alloc(44+n*2);out.write('RIFF',0,'ascii');out.writeUInt32LE(36+n*2,4);out.write('WAVEfmt ',8,'ascii');out.writeUInt32LE(16,16);out.writeUInt16LE(1,20);out.writeUInt16LE(1,22);out.writeUInt32LE(16000,24);out.writeUInt32LE(32000,28);out.writeUInt16LE(2,32);out.writeUInt16LE(16,34);out.write('data',36,'ascii');out.writeUInt32LE(n*2,40);return out;};
+ c.engine.synthesize=async text=>{state.synth.push(text);return [wav(text.length*0.02)];};
+ c.audio.playWav=async w=>{await wait((w.length-44)/32);};
+ // Silence is played, so the self-echo check (tested on its own above) has nothing to recognise: left out here.
+ c.selfEcho.play=()=>{};c.selfEcho.startReply=()=>{};
+}
+// The user talking over the reply: loud enough, long enough, with the detector reporting speech.
+function talkOver(state){feed(state,tone(3,0.002));feed(state,tone(1,0.08),i=>state.emit({type:'activity',utteranceId:'b',timing:{start:4,end:4.75+i*0.02}}));}
+const REPLY='First sentence here. Second sentence is longer and keeps going. Third one ends it.';
+async function interrupted(t){const v=voiceController(t);const {c,state,input}=v;await c.ready();await startVoice(c,input);playingReplies(c,state);
+ c.reply(REPLY);while(c.lastSpeech?.state!=='playing')await wait(5);
+ // 0.4 s into the second piece ("Second sentence ..."), counting the 0.4 s the interruption needs to be detected.
+ await wait(1200);const before=state.synth.length;talkOver(state);
+ assert.equal(c.lastSpeech.state,'cancelled','talking over the reply stops it at once');return {...v,before};}
+
+test('talking over a reply with nothing to say (no words come back): the reply goes on from the sentence it was reading',async t=>{
+ const {c,state,before}=await interrupted(t);
+ await wait(700);assert.equal(c.status().voice.resumePending,true,'it waits to know whether anything was said');
+ state.emit(turn('',4,5.2));await wait(30);
+ assert.equal(c.status().metrics.resumed,1);
+ assert.equal(state.synth.slice(before).join(' '),'Second sentence is longer and keeps going. Third one ends it.','from the start of the sentence it was reading, not the start of the reply');
+ assert.deepEqual(state.inserts,[],'nothing is pasted');
+});
+
+test('talking over a reply, then words that are pasted and sent: the reply stays stopped; a new reply replaces a stopped one',async t=>{
+ const {c,state,before}=await interrupted(t);
+ await wait(700);state.emit(turn('wait stop there',4,5.2));await wait(30);
+ assert.deepEqual(state.inserts.map(i=>i.text),['wait stop there']);
+ await wait(2700);assert.equal(state.synth.length,before,'not resumed, even after the quiet wait');assert.equal(c.status().voice.resumePending,false);
+ // A second interruption, then the agent's next reply arrives before anything is heard: that reply is read instead.
+ c.reply(REPLY);while(c.lastSpeech?.state!=='playing')await wait(5);await wait(1200);talkOver(state);
+ const n=state.synth.length;c.reply('New answer.');await wait(700);state.emit(turn('',4,5.2));await wait(50);
+ assert.deepEqual(state.synth.slice(n),['New answer.'],'the new reply, not the rest of the stopped one');
+});
+
+test('talking over a reply, then no turn at all: the reply goes on after the quiet wait; the user still talking keeps it stopped',async t=>{
+ const {c,state,before}=await interrupted(t);
+ // Speech still reported 2 s later: an empty turn then does not resume, the user is still talking.
+ await wait(2000);feed(state,tone(0.2,0.002),()=>state.emit({type:'activity',utteranceId:'c',timing:{start:7,end:7.5}}));state.emit(turn('',4,5.2));await wait(30);
+ assert.equal(state.synth.length,before,'still talking: not resumed');
+ await wait(2700);assert.equal(c.status().metrics.resumed,1,'resumed after the quiet wait');
+ assert.equal(state.synth.slice(before).join(' '),'Second sentence is longer and keeps going. Third one ends it.');
+});
+
+test('ending voice mode while a stopped reply waits: it never goes on',async t=>{
+ const {c,state,input,before}=await interrupted(t);
+ input.emit('voice',{action:'stop'});await c.actions;await wait(700);state.emit(turn('',4,5.2));await wait(2700);
+ assert.equal(state.synth.length,before);assert.equal(c.status().metrics.resumed||0,0);
+});

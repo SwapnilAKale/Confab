@@ -25,7 +25,11 @@ const MAX_RECORDING_MS=10*60*1000;
 //   a first piece with no word break at all stays whole (see voiceUnits).
 // - BARGE_IN_LEAD_MS: an interruption is detected about this long after the user starts talking (self-echo.cjs needs
 //   0.24 s of their voice, usually found within 0.4-0.5 s), so words that began earlier were heard before the user.
-const VOICE_IDLE_MS=10*60*1000,ECHO_WINDOW_MS=3000,ECHO_SHARE=0.7,VOICE_FIRST_UNIT=30,BARGE_IN_LEAD_MS=400;
+// - Resume: talking over a reply stops it at once. When that speech turns out to be nothing (its turn is empty, or is
+//   only the reply's echo) and the user is quiet, the reply goes on from the start of the sentence it was reading. If
+//   no turn comes back at all, it goes on after RESUME_QUIET_MS without speech. Anything pasted keeps it stopped.
+//   RESUME_ACTIVE_MS: speech reported this recently means the user is still talking, so it waits.
+const VOICE_IDLE_MS=10*60*1000,ECHO_WINDOW_MS=3000,ECHO_SHARE=0.7,VOICE_FIRST_UNIT=30,BARGE_IN_LEAD_MS=400,RESUME_QUIET_MS=2500,RESUME_ACTIVE_MS=600;
 const {SelfEcho,VoiceMeter}=require('./self-echo.cjs');
 // Generic native dictation. No agent-specific dependency.
 class PcController {
@@ -35,7 +39,7 @@ class PcController {
  // so a forgotten recording cannot keep the microphone open.
  constructor({engine,audio,input,notify,saveDraft,clearDraft,autoSend=false,lazy=false,onTalkback=()=>{},onDisarm=()=>false,spoken={sentences:0,chars:0},maxRecordingMs=MAX_RECORDING_MS,voiceIdleMs=VOICE_IDLE_MS,bargeIn=true,clock=Date.now}){
   // bargeIn: speaking stops a reply in voice mode (settings voiceInterrupt). Off, only the keys stop it.
-  Object.assign(this,{engine,audio,input,notify,saveDraft,clearDraft,autoSend,lazy,onTalkback,onDisarm,spoken,maxRecordingMs,voiceIdleMs,bargeIn});this.readAloud=true;this.pendingReplies=0;
+  Object.assign(this,{engine,audio,input,notify,saveDraft,clearDraft,autoSend,lazy,onTalkback,onDisarm,spoken,maxRecordingMs,voiceIdleMs,bargeIn});this.readAloud=true;this.pendingReplies=0;this.replies=[];
   // clock: time for the voice-mode loudness and self-echo timeline (tests use a simulated one).
   this.clock=clock;this.selfEcho=new SelfEcho({clock});this.state='loading';this.metrics={captures:0,frames:0,transcripts:0,insertions:0,fallbacks:0,replies:0,suppressed:0,played:0,voiceTurns:0,voiceSent:0,interruptions:0,echoDropped:0};this.speech=Promise.resolve();this.actions=Promise.resolve();this.generation=0;
   input.on('capture',e=>{this.actions=this.actions.then(()=>e.action==='start'?this.startCapture({talkback:e.talkback===true}):this.endCapture()).catch(e=>this.failCapture(e));});
@@ -147,7 +151,7 @@ class PcController {
  // mode is over once the detector has finished. Cancel (disarm) discards instead, through cancelCapture.
  async stopVoice({idle=false}={}){const capture=this.capture;if(!capture?.voice||capture.ending)return;
   // Ending voice mode also ends the conversation: the reply being read stops, and the reply still awaited is not read.
-  clearTimeout(capture.limit);capture.ending=true;this.endedAt=Date.now();this.cancelSpeech();try{this.onDisarm();}catch{}this.refreshBadge();await Promise.resolve(this.audio.stop()).catch(()=>{});
+  clearTimeout(capture.limit);capture.ending=true;this.endedAt=Date.now();this.dropResume(capture);this.cancelSpeech();try{this.onDisarm();}catch{}this.refreshBadge();await Promise.resolve(this.audio.stop()).catch(()=>{});
   this.engine.end(capture.id);void Promise.resolve().then(()=>idle?this.audio.limitCue():this.audio.cue(false)).catch(()=>{});
   if(idle)this.failure('Voice mode stopped after '+Math.round(this.voiceIdleMs/60000)+' minutes without speech. Press '+this.voiceKey()+' to start it again.');
   capture.deadline=setTimeout(()=>this.endVoice(capture),this.lazy?180000:90000);capture.deadline.unref?.();
@@ -161,19 +165,23 @@ class PcController {
  voiceBargeIn(){return this.bargeIn!==false;}
  receiveVoice(capture,event){if(this.capture!==capture||this.closed)return;
   if(event.type==='activity'){if(capture.muted)return;
+   if(capture.resume){capture.resume.lastActivity=Date.now();this.resumeLater(capture);}
    // Speech is going on. While a reply is being read or prepared, it stops the reply when the microphone's loudness
    // says it is the user, not the reply's own echo (VoiceMeter, SelfEcho).
    if(!capture.ending)this.voiceIdle(capture);
-   if(this.voiceBargeIn()&&['queued','synthesizing','playing'].includes(this.lastSpeech?.state)&&capture.meter.voiced()){this.metrics.interruptions++;this.lastVoice={...this.lastVoice,interruptedAt:Date.now(),selfEcho:this.selfEcho.status()};capture.interruptions=[...(capture.interruptions||[]).slice(-4),{at:Date.now(),spoken:this.spokenEcho}];this.cancelSpeech();}
+   if(this.voiceBargeIn()&&['queued','synthesizing','playing'].includes(this.lastSpeech?.state)&&capture.meter.voiced()){this.metrics.interruptions++;this.lastVoice={...this.lastVoice,interruptedAt:Date.now(),selfEcho:this.selfEcho.status()};capture.interruptions=[...(capture.interruptions||[]).slice(-4),{at:Date.now(),spoken:this.spokenEcho}];
+    // Where the reply was when the user started talking, so it can go on if they said nothing.
+    const replies=this.resumePoint(Date.now()-BARGE_IN_LEAD_MS);this.cancelSpeech();
+    if(replies.length){capture.resume={replies,generation:this.generation,lastActivity:Date.now(),timer:null};this.resumeLater(capture);}}
    return;
   }
   if(event.type==='final'){
    // Speech from while the microphone was muted, or cut off by muting, is never sent.
-   if(this.duringMute(capture,event.timing)){capture.parts=[];this.metrics.mutedDropped=(this.metrics.mutedDropped||0)+1;return;}
+   if(this.duringMute(capture,event.timing)){capture.parts=[];this.metrics.mutedDropped=(this.metrics.mutedDropped||0)+1;this.turnHeard(capture,false);return;}
    if(typeof event.text==='string'&&event.text.trim())capture.parts.push({text:event.text.trim(),timing:event.timing,words:wordStarts(event.recognizerResult,event.timing)});
    // A turn longer than the detector's 24 s window arrives in pieces; only its real end sends it.
    if(event.timing?.reason==='length-limit')return;
-   const parts=capture.parts.splice(0);if(!parts.length)return;
+   const parts=capture.parts.splice(0);if(!parts.length){this.turnHeard(capture,false);return;}
    const text=parts.map(p=>p.text).join(' '),start=parts[0].timing?.start,end=parts[parts.length-1].timing?.end,words=parts.every(p=>p.words)?parts.flatMap(p=>p.words):null;
    capture.turns=capture.turns.then(()=>this.voiceTurn(capture,text,{start,end,words})).catch(e=>this.failure('Voice turn failed: '+(e.message||'unknown error')));
    return;
@@ -181,6 +189,30 @@ class PcController {
   if(event.type==='capture-done'){void capture.turns.then(()=>this.endVoice(capture));return;}
   if(event.type==='error'){this.failCapture(Error(event.message||'Speech recognition failed.'));}
  }
+ // What is left to read of the replies an interruption stopped: the one being read, from the start of the sentence
+ // heard at `heardAt` (when the user started talking), and any waiting after it, whole. A reply not yet playing is
+ // read again from its start.
+ resumePoint(heardAt){const out=[];
+  for(const [k,e] of this.replies.filter(e=>e.generation===this.generation).entries()){let text=e.text;
+   if(k===0&&e.units&&e.marks.length&&e.marks[0].at!==null){const joined=e.units.join(' ');let offset=0,pos=0;
+    for(const m of e.marks){const len=e.units[m.index].length;if(m.at!==null&&m.at<=heardAt)pos=offset+Math.min(len,Math.floor(len*(heardAt-m.at)/Math.max(1,m.sec*1000)));offset+=len+1;}
+    let from=0;for(const m of joined.matchAll(/[.!?]["'”)\]]*\s+/g)){if(m.index<pos)from=m.index+m[0].length;else break;}
+    text=joined.slice(from).trim();}
+   if(text)out.push({text,raw:e.raw});}
+  return out;}
+ // (Re)starts the wait after which a stopped reply goes on when no turn came back (RESUME_QUIET_MS).
+ resumeLater(capture){const r=capture.resume;clearTimeout(r.timer);r.timer=setTimeout(()=>this.resumeReply(capture),RESUME_QUIET_MS);r.timer.unref?.();}
+ // A turn ended: `said` when it is being pasted. Something said keeps a stopped reply stopped (and stops one that went
+ // on meanwhile); nothing said lets it go on, once the user is quiet.
+ turnHeard(capture,said){const r=capture.resume;
+  if(said){if(r){clearTimeout(r.timer);capture.resume=null;}
+   if(capture.resumed===this.generation&&['queued','synthesizing','playing'].includes(this.lastSpeech?.state))this.cancelSpeech();capture.resumed=null;return;}
+  if(r&&Date.now()-r.lastActivity>=RESUME_ACTIVE_MS)this.resumeReply(capture);}
+ resumeReply(capture){const r=capture.resume;if(!r)return;clearTimeout(r.timer);capture.resume=null;
+  if(this.capture!==capture||capture.ending||this.closed||r.generation!==this.generation)return;
+  let any=false;for(const e of r.replies)any=this.reply(e.text,{resume:true,raw:e.raw})||any;
+  if(any){this.metrics.resumed=(this.metrics.resumed||0)+1;capture.resumed=this.generation;this.lastVoice={...this.lastVoice,resumedAt:Date.now()};}}
+ dropResume(capture){if(capture.resume){clearTimeout(capture.resume.timer);capture.resume=null;}capture.resumed=null;}
  // The interruption that happened while this turn was being spoken, if any (from 1 s before it began to its end).
  bargeInDuring(capture,timing){if(!capture.interruptions?.length||!capture.liveAt||!Number.isFinite(timing?.start))return null;
   const start=capture.liveAt+timing.start*1000,end=capture.liveAt+(Number.isFinite(timing.end)?timing.end:timing.start)*1000;
@@ -209,8 +241,9 @@ class PcController {
   // A turn during which the user interrupted a reply is the user, even though it also heard the reply's tail: only
   // the reply's own words at its start are trimmed. Other turns heard during a reply may be its echo (isEcho).
   const barge=this.bargeInDuring(capture,timing);
-  if(barge){const trimmed=trimEcho(text,barge.spoken,this.echoWordsBefore(capture,timing,barge.at,text));if(trimmed!==text)this.metrics.echoTrimmed=(this.metrics.echoTrimmed||0)+1;text=trimmed;if(!text){this.metrics.echoDropped++;return;}}
-  else if(this.isEcho(capture,text,timing)){this.metrics.echoDropped++;return;}
+  if(barge){const trimmed=trimEcho(text,barge.spoken,this.echoWordsBefore(capture,timing,barge.at,text));if(trimmed!==text)this.metrics.echoTrimmed=(this.metrics.echoTrimmed||0)+1;text=trimmed;if(!text){this.metrics.echoDropped++;this.turnHeard(capture,false);return;}}
+  else if(this.isEcho(capture,text,timing)){this.metrics.echoDropped++;this.turnHeard(capture,false);return;}
+  this.turnHeard(capture,true);
   // After voice mode was ended, speech already heard is only pasted (no Enter, no talk-back), as a dictation: the user
   // reviews it and sends it, or not (stopVoice).
   const final=capture.ending===true;this.metrics.voiceTurns++;if(!final){try{this.onTalkback(text);}catch{}}
@@ -266,8 +299,13 @@ class PcController {
  }
  // discard (Disarm): drop the audio and any partial text; otherwise a partial draft is kept.
  async cancelCapture({discard=false}={}){const capture=this.capture;this.capture=null;clearTimeout(capture?.limit);clearTimeout(capture?.deadline);try{await this.audio.stop();}catch{}this.refreshBadge();if(capture){this.engine.cancel(capture.id);const partial=capture.voice?capture.parts.map(p=>p.text):capture.parts;if(partial.length&&!discard)await this.fallback(partial.join(' '),'Recording cancelled; partial draft saved.');}if(!this.closed)this.state='ready';await this.input.request('capture-reset');if(capture?.voice)await this.input.request('voice-reset');}
- reply(text){const raw=text;this.metrics.replies++;if(this.paused||!this.readAloud||this.pendingReplies>=100){this.lastSpeech={state:'suppressed',reason:this.paused?'paused':!this.readAloud?'disabled':'queue_full'};return false;}// Only the opening is spoken (this.spoken); a short closing says when the rest was left out on purpose.
-  const prepared=spokenReply(text,this.spoken);if(!prepared.ok){this.metrics.suppressed++;this.lastSpeech={state:'suppressed',reason:prepared.reason,detail:prepared.detail};return false;}text=prepared.text;this.pendingReplies++;const generation=this.generation;this.lastSpeech={state:'queued'};const timing={receivedAt:Date.now(),chars:text.length};this.lastReply=timing;void this.cue('tick');this.refreshBadge();const mark=name=>{if(timing[name]===undefined)timing[name]=Date.now()-timing.receivedAt;};
+ // resume: the rest of a reply an interruption stopped (resumeReply); its text is already prepared, `raw` is the reply.
+ reply(text,{resume=false,raw:original}={}){const raw=resume&&typeof original==='string'?original:text;
+  // A new reply replaces one stopped by an interruption.
+  if(!resume){this.metrics.replies++;if(this.capture?.voice)this.dropResume(this.capture);}if(this.paused||!this.readAloud||this.pendingReplies>=100){this.lastSpeech={state:'suppressed',reason:this.paused?'paused':!this.readAloud?'disabled':'queue_full'};return false;}// Only the opening is spoken (this.spoken); a short closing says when the rest was left out on purpose.
+  const prepared=resume?{ok:true,text}:spokenReply(text,this.spoken);if(!prepared.ok){this.metrics.suppressed++;this.lastSpeech={state:'suppressed',reason:prepared.reason,detail:prepared.detail};return false;}text=prepared.text;this.pendingReplies++;const generation=this.generation;this.lastSpeech={state:'queued'};const timing={receivedAt:Date.now(),chars:text.length};this.lastReply=timing;if(!resume)void this.cue('tick');
+  // Where each piece of the reply starts playing (marks), so an interruption knows how far it got (resumePoint).
+  const entry={generation,text,raw,units:null,marks:[]};this.replies.push(entry);this.refreshBadge();const mark=name=>{if(timing[name]===undefined)timing[name]=Date.now()-timing.receivedAt;};
   // A dictation in progress holds the reply until it ends; voice mode does not (the reply plays while it listens).
   const recording=()=>!!this.capture&&!this.capture.voice;
   this.speech=this.speech.then(async()=>{while(recording()&&!this.closed&&generation===this.generation)await delay(25);if(this.closed||generation!==this.generation||recording()){if(generation===this.generation)this.lastSpeech={state:'cancelled',reason:recording()?'recording_active':'stopped'};this.refreshBadge();return;}this.lastSpeech={state:'synthesizing'};
@@ -279,26 +317,27 @@ class PcController {
    // only fall between units.
    // Numeric dates follow one convention per reply: inferred from the whole reply, else the dateOrder setting.
    const normalize={dateOrder:inferDateOrder(raw)||this.spoken.dateOrder||'dmy'};
-   const live=()=>!this.closed&&generation===this.generation,units=this.capture?.voice?voiceUnits(text):speechUnits(text),started=Date.now();mark('synthesisStartMs');timing.units=units.length;
+   const live=()=>!this.closed&&generation===this.generation,units=this.capture?.voice?voiceUnits(text):speechUnits(text),started=Date.now();mark('synthesisStartMs');timing.units=units.length;entry.units=units;
    let stream=null,playback=Promise.resolve(),buffered=[],bufferedSec=0,playing=false,doneChars=0,doneSec=0;
    const emit=wav=>{if(isPcm16(wav))this.selfEcho.play(wav.subarray(44),wav.readUInt32LE(24));if(stream)stream.write(wav.subarray(44));else{playback=playback.then(()=>live()&&this.audio.playWav(wav));playback.catch(()=>{});}};
    let audioRunsOutAt=0;timing.maxPauseMs=0;
-   const begin=()=>{playing=true;mark('playbackStartMs');this.selfEcho.startReply();audioRunsOutAt=Date.now()+bufferedSec*1000;this.lastSpeech={state:'playing'};this.refreshBadge();const rate=buffered.find(isPcm16)?.readUInt32LE(24);if(this.audio.stream&&rate&&buffered.every(w=>isPcm16(w)&&w.readUInt32LE(24)===rate))stream=this.audio.stream(rate);for(const wav of buffered)emit(wav);buffered=[];};
+   const begin=()=>{playing=true;mark('playbackStartMs');this.selfEcho.startReply();const now=Date.now();audioRunsOutAt=now+bufferedSec*1000;for(const m of entry.marks)if(m.at===null)m.at=now+m.offset*1000;this.lastSpeech={state:'playing'};this.refreshBadge();const rate=buffered.find(isPcm16)?.readUInt32LE(24);if(this.audio.stream&&rate&&buffered.every(w=>isPcm16(w)&&w.readUInt32LE(24)===rate))stream=this.audio.stream(rate);for(const wav of buffered)emit(wav);buffered=[];};
    let doneUnits=0;
    for(const [index,unit] of units.entries()){
     if(!live())break;const parts=[];const rest=await this.engine.synthesize(unit,{onChunk:w=>parts.push(w),isCancelled:()=>!live(),partLimit:160,normalize});if(!live())break;
     mark('firstUnitMs');
     if(playing){timing.maxPauseMs=Math.max(timing.maxPauseMs,Date.now()-audioRunsOutAt);audioRunsOutAt=Math.max(audioRunsOutAt,Date.now());}
-    for(const wav of joinWavs([...parts,...(rest||[])])){const sec=wavSeconds(wav);doneSec+=sec;if(playing){emit(wav);audioRunsOutAt+=sec*1000;}else{buffered.push(wav);bufferedSec+=sec;}}
+    const wavs=joinWavs([...parts,...(rest||[])]);entry.marks.push({index,sec:wavs.reduce((n,w)=>n+wavSeconds(w),0),at:playing?audioRunsOutAt:null,offset:playing?null:bufferedSec});
+    for(const wav of wavs){const sec=wavSeconds(wav);doneSec+=sec;if(playing){emit(wav);audioRunsOutAt+=sec*1000;}else{buffered.push(wav);bufferedSec+=sec;}}
     doneChars+=unit.length;doneUnits++;
     if(!playing&&doneSec>0&&!pauseExpected(units.slice(index+1),Date.now()-started,doneUnits,doneChars,doneSec,bufferedSec))begin();
    }
    if(live()&&!playing&&buffered.length)begin();
    timing.synthesisMs=Date.now()-started;timing.audioMs=Math.round(doneSec*1000);timing.realTimeFactor=doneSec?Math.round(timing.synthesisMs/1000/doneSec*100)/100:null;
    if(stream)await stream.end();await playback;mark('finishedMs');echo.endedAt=Date.now();if(generation===this.generation){this.metrics.played++;this.lastSpeech={state:'completed'};}
-  }).catch(()=>{if(!this.closed){this.lastSpeech={state:'failed',stage:this.lastSpeech?.state};this.failure('Reply read-aloud failed. Check your speakers and speech models.');}}).finally(()=>{if(this.spokenEcho&&this.spokenEcho.endedAt===null)this.spokenEcho.endedAt=Date.now();this.pendingReplies--;this.refreshBadge();});return true;
+  }).catch(()=>{if(!this.closed){this.lastSpeech={state:'failed',stage:this.lastSpeech?.state};this.failure('Reply read-aloud failed. Check your speakers and speech models.');}}).finally(()=>{this.replies=this.replies.filter(e=>e!==entry);if(this.spokenEcho&&this.spokenEcho.endedAt===null)this.spokenEcho.endedAt=Date.now();this.pendingReplies--;this.refreshBadge();});return true;
  }
- status(){return {badgeState:this.badgeState().name,lastMicStartMs:this.lastMicStartMs,lastReply:this.lastReply,state:this.state,metrics:{...this.metrics},lastInsertion:this.lastInsertion,lastRefusal:this.lastRefusal||null,lastCapture:this.lastCapture,lastSpeech:this.lastSpeech,voice:this.capture?.voice?{on:true,muted:this.capture.muted===true,echoCancel:this.capture.echoCancel===true,interrupt:this.voiceBargeIn(),selfEcho:this.selfEcho.status()}:{on:false},lastVoice:this.lastVoice||null,lastError:this.lastError,notificationAccepted:this.notificationAccepted};}
+ status(){return {badgeState:this.badgeState().name,lastMicStartMs:this.lastMicStartMs,lastReply:this.lastReply,state:this.state,metrics:{...this.metrics},lastInsertion:this.lastInsertion,lastRefusal:this.lastRefusal||null,lastCapture:this.lastCapture,lastSpeech:this.lastSpeech,voice:this.capture?.voice?{on:true,muted:this.capture.muted===true,echoCancel:this.capture.echoCancel===true,interrupt:this.voiceBargeIn(),resumePending:!!this.capture.resume,selfEcho:this.selfEcho.status()}:{on:false},lastVoice:this.lastVoice||null,lastError:this.lastError,notificationAccepted:this.notificationAccepted};}
  async setPaused(paused){this.paused=paused;this.cancelSpeech();if(paused)await this.cancelCapture();if(this.input.setPaused?.(paused)===false){this.paused=true;this.failure('Dictation shortcut is in use. Close the other dictation instance before resuming.');return false;}return true;}
  setReadAloud(enabled){this.readAloud=enabled;if(!enabled)this.cancelSpeech();}
  async close(){if(this.closed)return;this.closed=true;this.state='stopping';clearTimeout(this.flashTimer);this.flash=null;this.cancelSpeech();try{await this.cancelCapture();}finally{try{this.input.close();}finally{try{this.engine.close();}finally{try{await this.audio.close();}finally{await this.notify.close();}}}}}
