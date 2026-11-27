@@ -313,7 +313,7 @@ The service's result is an object with `accepted` (true or false), `reason` (see
 
 ### What gets read aloud
 
-Send the answer exactly as the user sees it. You don't need to strip Markdown, code or links. With the default settings, Confab reads only the opening: the first paragraph, at most 3 sentences and 400 characters. It skips sentences it can't say well, such as code, file paths, URLs and JSON. "Full reply on screen." follows when something was left out, and "The reply is on screen." is said when nothing could be read, which includes an empty answer. Text limits: 60,000 characters per call, 256 KiB per request.
+Send the answer exactly as the user sees it. You don't need to strip Markdown, code or links. With the default settings, Confab reads only the opening: the first paragraph, at most 3 sentences and 400 characters. A code block is described in a few words ("Python code, six lines, defining load config and save config.", "Changes to controller dot cjs: two lines added."), a short command is said as it is ("npm test"), a path as its file name, a URL as "a link" and JSON by its main keys. "Full reply on screen." follows when something was left out, and "The reply is on screen." is said when nothing else could be read. An empty answer is not spoken. Text limits: 60,000 characters per call, 256 KiB per request.
 
 The full rules are in [What is spoken](DEVELOPER_GUIDE.md#what-is-spoken) and [Pronunciation](DEVELOPER_GUIDE.md#pronunciation).
 
@@ -469,7 +469,7 @@ Every response is JSON: `{"accepted": <bool>, "reason": "<code>"}`, sometimes wi
 | 200 | false | `disabled` | The tray's read-aloud mode is Off. | The user switches it back to Talk-back only. |
 | 200 | false | `duplicate` | This `id` was already received for this `agent` + `session_id`. | Pass a new `id` for a new answer. |
 | 200 | false | `queue_full` | 100 answers are already waiting to be spoken. | Rare. Send fewer replies. |
-| 200 | false | `display_only` | Only when the user set `spokenSentences` and `spokenChars` to `0` (read the whole answer): nothing in it can be spoken. `detail` is `code`, `diff`, `path`, `url`, `json`, `too_long` or `empty`. | Nothing. The answer is on screen. |
+| 200 | false | `display_only` | The answer is empty or has nothing that can be spoken (only spaces or symbols). `detail` is `empty`. | Nothing. The answer is on screen. |
 
 `held_expired` and `held_released` are never responses. They appear only in `requests.jsonl`, as the `detail` of a later entry for the held reply. `held_expired` is logged with reason `not_talkback`: the held answer's matching turn didn't arrive within 2 seconds, so it stayed silent. `held_released` is logged when that turn arrived, with the reason the answer then got, normally `queued`.
 

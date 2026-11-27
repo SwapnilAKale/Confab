@@ -85,18 +85,25 @@ Keys can be changed in `settings.json` (quit first): `"hotkeys": {"capture": "Ct
 
 ## What is spoken
 
-Only the **opening** of a reply is read: the first prose paragraph, at most 3 sentences or 400 characters. A heading at the very start is skipped, and the opening stops at the next heading, list, table, quote or code. Opening sentences that can't be spoken are dropped one by one. "Full reply on screen." is added when anything was left out, and "The reply is on screen." is said if nothing in the opening can be spoken. `spokenSentences` / `spokenChars` change the limits (0 and 0 = the full reply). The tray's **Read full reply** (`fullReply`, off by default) reads the full reply whatever the limits. Lead a reply with a short plain-language summary and it is the part that is heard. The rules are in `src/pc/reply-text.cjs`.
+Only the **opening** of a reply is read: the first prose paragraph, at most 3 sentences or 400 characters. A heading at the very start is skipped, and the opening stops at the next heading, list, table, quote or code. Opening sentences that can't be spoken are dropped one by one. "Full reply on screen." is added when anything was left out, and "The reply is on screen." is said if nothing in the opening can be spoken (an empty reply is silent). `spokenSentences` / `spokenChars` change the limits (0 and 0 = the full reply). The tray's **Read full reply** (`fullReply`, off by default) reads the full reply whatever the limits. Lead a reply with a short plain-language summary and it is the part that is heard. The rules are in `src/pc/reply-text.cjs`.
 
-**Not spoken.** With the default limits, an opening sentence that matches one of these rules is dropped: the rest of the opening is still read, followed by "Full reply on screen.", and if nothing is left, "The reply is on screen." is said. Only when `spokenSentences` and `spokenChars` are both `0` (the full reply is read) is a reply that matches one of these rules refused as a whole, with reason `display_only` and this `detail`:
+**Code, paths, links and data are described or said in a short form** (`softenReply` in `src/pc/reply-text.cjs`), in the opening and in the full reply alike, so none of them silences a reply. A description is built from the text alone (no model), so the same block is always described the same way:
 
-| `detail` | Triggers |
+| In the reply | Said as |
 |---|---|
-| `code` | Fenced code blocks. Inline code that is not plain words (`` `max_sets=5` ``) or is a shell command (`` `npm test` ``). Curly braces. A line starting with a code keyword or shell command (`const`, `def`, `import`, `return`, `npm`, `git`, `python`, ...) or `$ `. Operators such as `===`, `!==`, `=>`, `&&`, `\|\|`, `::`, `->`. Calls such as `foo()` or `obj.method(`. A statement ending in `;` alongside `=`. |
-| `diff` | Unified-diff headers (`--- ` / `+++ ` lines, `@@ ` hunks). |
-| `path` | Drive paths (`C:\`), backslash paths, Unix paths with two or more segments (`/usr/bin`, `./a/b`), file names with code or config extensions (`.py`, `.json`, `.md`, ...). |
-| `url` | A bare `http://`, `https://` or `www.` URL. A markdown link keeps its text and is spoken. |
-| `json` | A reply that parses as JSON, or contains `"key": value`. |
-| `too_long` / `empty` | More than 5,000 characters after normalisation, or nothing left to say. |
+| A fenced code block | its language (from the fence's tag, or guessed), its size and up to three names it defines: "Python code, six lines, defining load config and save config." An unknown tag is said as the language ("Elixir code, two lines."); with no tag and no guess, "Code, one line." |
+| A shell block (`bash`, `powershell`, `cmd`, ... or untagged lines that all start with a command) | one short plain command as it is ("npm test."); else the programs it runs: "A docker command.", "Commands for git and npm, three lines." PowerShell cmdlets are said as words ("get child item"). |
+| A JSON block, or a line that is JSON | its first three keys: "Data with name, version, scripts and one more."; a list: "A list of three items." |
+| A YAML, TOML or settings block | "YAML, four lines, with name, version and models." |
+| An output, log or text block | "Output on screen, two lines." / "Text on screen, two lines." |
+| A unified diff, fenced or not | the files it changes and the lines added and removed: "Changes to controller dot cjs: two lines added, one line removed." |
+| A stray line of code in prose (a code keyword or shell command at its start, `$ `, curly braces, operators such as `===`, `=>`, `&&`, `::`, a statement ending in `;` with `=`) | "Code on screen." (once for a run of them) |
+| A URL (`http://`, `https://`, `www.`); a markdown link keeps its text | "a link" |
+| A file path: a drive path (`C:\...`), a network path, a path starting with `~`, `.` or `/`, a path with a file extension or three or more separators, or a file name with a code or config extension | its file name: `src/pc/reply-text.cjs` is "reply text dot cjs", `C:\Users\A\Desktop` is "Desktop". Punctuation after a path (`.`, `,`, `?`, `;`, `:`, `!`) stays part of the sentence. |
+| A function named in prose (`parse_log()`) | its name ("parse log") |
+| Inline code: plain words, key names (`Ctrl+Shift+5`), identifiers (`voiceUnits`); a path; a command; anything else (`max_sets=5`) | the words; the file name; a short plain command as it is (`npm test`), a longer one as "the npm command"; "the code on screen" |
+
+Counts up to twelve are said as words. A fence that is never closed (a reply cut short) runs only to the next blank line, so the prose after it is still read; a stray ``` in prose is dropped rather than treated as code. Words with slashes (`push/pull`, `km/h`, `sets/reps/RPE`), dates (`10/04/2026`) and versions (`2.4.1`) are not paths. When nothing else is left (a reply that is only stray code lines), "The reply is on screen." is said. A reply longer than 5,000 characters after normalisation is read up to that point, ending at a sentence, followed by "Full reply on screen.". A reply that is empty, or has nothing that can be said, is refused in both modes (`display_only`, `empty`) and nothing is spoken.
 
 **Rewritten, then spoken:**
 

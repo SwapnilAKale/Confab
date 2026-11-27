@@ -3,13 +3,37 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),{EventEmi
 const {prepareReply}=require('../src/pc/reply-text.cjs'),{run}=require('../src/pc/resident.cjs'),sdk=require('../src/pc/client.cjs'),profileApi=require('../src/pc/profile.cjs');
 const spoken=text=>{const r=prepareReply(text);assert.equal(r.ok,true,JSON.stringify(r));return r.text;};
 const rejected=text=>{const r=prepareReply(text);assert.equal(r.ok,false,text);return r.detail;};
+const said=text=>{const r=prepareReply(text);assert.equal(r.ok,true,text);return r.text;};
 
 test('citation brackets are removed',()=>{assert.equal(spoken('Volume drives growth [1].'),'Volume drives growth.');assert.equal(spoken('Two studies agree [2, 3] and a third [4-6].'),'Two studies agree and a third.');});
 test('parenthetical content is spoken with a pause, never stripped',()=>{assert.equal(spoken('Do 3 sets (RPE 8).'),'Do 3 sets, RPE 8.');assert.equal(spoken('Do 3 sets (RPE 8) today'),'Do 3 sets, RPE 8, today');assert.equal(spoken('Squat stalled (as of 2026-07-09).'),'Squat stalled, as of 2026-07-09.');assert.equal(spoken('Rest (about 2 minutes (longer if needed)) then go.'),'Rest, about 2 minutes, longer if needed, then go.');assert.equal(spoken('Log each set(s) carefully.'),'Log each sets carefully.');assert.equal(spoken('3. **Seated Machine Curl (Kg)** – 360 sets'),'Seated Machine Curl, Kg, 360 sets');});
 test('semicolons are prose pauses',()=>{assert.equal(spoken('Rest well; eat enough.'),'Rest well, eat enough.');});
 test('slashes read per for unit pairs and or for word alternatives',()=>{assert.equal(spoken('Aim for 12 sets/week.'),'Aim for 12 sets per week.');assert.equal(spoken('Ran at 12 km/h.'),'Ran at 12 km per hour.');assert.equal(spoken('Eat 1.6 g/kg of protein.'),'Eat 1.6 g per kg of protein.');assert.equal(spoken('Train 3/week.'),'Train 3 per week.');assert.equal(spoken('Do 10 reps/set.'),'Do 10 reps per set.');assert.equal(spoken('Run a push/pull split.'),'Run a push or pull split.');assert.equal(spoken('Try push/pull/legs.'),'Try push, pull or legs.');assert.equal(spoken('Use lbs/kg consistently.'),'Use lbs or kg consistently.');assert.equal(spoken('Lift w/ straps, and/or w/o a belt.'),'Lift with straps, and or without a belt.');});
 test('numbers and numeric slashes are left for pronunciation',()=>{assert.equal(spoken('Total 1,200 kg at 8/10 of the way.'),'Total 1,200 kg at 8/10 of the way.');});
-test('genuine code, diffs, paths, URLs and JSON stay display-only',()=>{assert.equal(rejected('const answer = 7;'),'code');assert.equal(rejected('Run `npm test` now.'),'code');assert.equal(rejected('Call parse_log() first.'),'code');assert.equal(rejected('--- a/x\n+++ b/x\n@@ -1 +1 @@\n'),'diff');assert.equal(rejected('C:\\private\\file.json'),'path');assert.equal(rejected('Edit src/pc/client.cjs.'),'path');assert.equal(rejected('See /usr/local/bin for it.'),'path');assert.equal(rejected('Read https://example.com first.'),'url');assert.equal(rejected('{"sets": 3}'),'json');assert.equal(rejected('   '),'empty');assert.equal(rejected('word '.repeat(1100)),'too_long');});
+test('code, diffs, paths, links and JSON never silence a reply: they are said in a short form or described',()=>{
+ assert.equal(said('const answer = 7;'),'The reply is on screen.','a reply that is only code');
+ assert.equal(said('Run `npm test` now.'),'Run npm test now.');assert.equal(said('Then `npm install --save-dev typescript`.'),'Then the npm command.');
+ assert.equal(said('Call parse_log() first.'),'Call parse log first.');
+ assert.equal(said('--- a/x\n+++ b/x\n@@ -1 +1 @@\n'),'Changes to x.','a reply that is only a diff names its file');
+ assert.equal(said(String.raw`C:\private\file.json`),'file dot json');
+ assert.equal(said('Edit src/pc/client.cjs.'),'Edit client dot cjs.','a path is said as its file name, keeping the full stop');
+ assert.equal(said('See /usr/local/bin for it.'),'See bin for it.');
+ assert.equal(said('Read https://example.com first.'),'Read a link first.');
+ assert.equal(said('{"sets": 3}'),'Data with sets.','a reply that is only data names its keys');
+ assert.equal(rejected('   '),'empty');
+ const long=said('word. '.repeat(1100));assert.ok(long.length<=5000+30&&long.endsWith('Full reply on screen.'),'a very long reply is read up to the limit');
+});
+test('a reply that starts with a path or code is still read: the path as its file name, a code block described',()=>{
+ assert.equal(said('src/pc/reply-text.cjs now handles paths. The tests pass.'),'reply text dot cjs now handles paths. The tests pass.');
+ assert.equal(said(String.raw`The settings file is at C:\Users\A\AppData\Local\Confab\resident\settings.json and you can edit it.`),'The settings file is at settings dot json and you can edit it.');
+ assert.equal(said(String.raw`I put the build in C:\Users\A\Desktop\AI\Confab and it runs.`),'I put the build in Confab and it runs.');
+ assert.equal(said('Open ~/notes/todo.md or ./scripts/run.sh to see it.'),'Open todo dot md or run dot sh to see it.');
+ assert.equal(said('I updated README.md and docs/DEVELOPER_GUIDE.md.'),'I updated README dot md and DEVELOPER GUIDE dot md.');
+ assert.equal(said('Here is the change:\n```js\nconst x = 1;\nfoo(x);\n```\nThat fixes the bug.'),'Here is the change.\nJavaScript code, two lines.\nThat fixes the bug.');
+ assert.equal(said('Press `Ctrl+Shift+5`, then call `voiceUnits` from `controller.cjs`.'),'Press Ctrl Shift 5, then call voiceUnits from controller dot cjs.');
+ // Words with slashes, dates and versions are not paths.
+ assert.equal(said('The date is 10/04/2026, push/pull days stay, at 80 km/h. Version 2.4.1 is out.'),'The date is 10/04/2026, push or pull days stay, at 80 km per hour. Version 2.4.1 is out.');
+});
 
 test('endpoint requires id, explains every rejection, and logs without text',{skip:process.platform!=='win32'},async t=>{
  const profile=fs.mkdtempSync(path.resolve('test-output/resident-contract-'));const played=[],said=[];
@@ -60,7 +84,7 @@ test('markdown is flattened before speech',()=>{assert.equal(spoken('**Seated Ma
 test('numbered and bulleted lists drop markers and pause between items',()=>{assert.equal(spoken("Today's plan: 1. Squats 2. Bench 3. Rows"),"Today's plan: Squats. Bench. Rows.");assert.equal(spoken('1. Squats 2. Bench 3. Rows'),'Squats. Bench. Rows.');assert.equal(spoken('Plan:\n1. Squats\n2) Bench\n- Rows\n* Curls\n+ Dips\n• Plank'),'Plan.\nSquats.\nBench.\nRows.\nCurls.\nDips.\nPlank.');assert.equal(spoken('Plan: • Squat • Bench'),'Plan: Squat. Bench');assert.equal(spoken('Step 1. Warm up and 2. Lift'),'Step 1. Warm up and 2. Lift');assert.equal(spoken('Version 2. Then go.'),'Version 2. Then go.');});
 test('scale ratios read out of only in rating context',()=>{assert.equal(spoken('Hit RPE 8/10.'),'Hit RPE 8 out of 10.');assert.equal(spoken('Effort was 7/10 today.'),'Effort was 7 out of 10 today.');assert.equal(spoken('Rated it 4/5.'),'Rated it 4 out of 5.');assert.equal(spoken('Sleep score: 85/100.'),'Sleep score: 85 out of 100.');assert.equal(spoken('That was 9/10 RPE.'),'That was 9 out of 10 RPE.');assert.equal(spoken('Add 3/4 cup of oats.'),'Add 3/4 cup of oats.');assert.equal(spoken('Deload on 10/04.'),'Deload on 10/04.');});
 test('regression sentences from the live check',()=>{assert.equal(spoken('Do 3 sets (RPE 8) on push/pull days, about 12 sets/week [1].'),'Do 3 sets, RPE 8, on push or pull days, about 12 sets per week.');assert.equal(spoken('**Seated Machine Curl** - 3 sets at RPE 8/10.'),'Seated Machine Curl, 3 sets at RPE 8 out of 10.');assert.equal(spoken("Today's plan: 1. Squats 2. Bench 3. Rows"),"Today's plan: Squats. Bench. Rows.");});
-test('inline code that is not plain words stays display-only',()=>{assert.equal(rejected('Run `npm test` now.'),'code');assert.equal(rejected('Set `max_sets=5` there.'),'code');assert.equal(rejected('```\nx\n```'),'code');});
+test('inline code that is not plain words is said as code on screen; a short command as it is',()=>{assert.equal(said('Run `npm test` now.'),'Run npm test now.');assert.equal(said('Set `max_sets=5` there.'),'Set the code on screen there.');assert.equal(said('```\nx\n```'),'Code, one line.');});
 test('speech units: short first unit (long first sentence split at a clause), then growing units of whole sentences',()=>{const {speechUnits}=require('../src/pc/reply-text.cjs');
  const units=speechUnits('All three fixes are done and running in the new version, and every automated test passes on this machine. The microphone is faster. The badge is clearer. Focus is tracked while you talk, and the text is copied if you stop elsewhere. Done.');
  assert.equal(units[0],'All three fixes are done','about 50 characters, split before a clause word');assert.ok(units[0].length<=50);
@@ -77,8 +101,55 @@ test('spoken opening: first prose paragraph, at most N sentences and M character
  assert.equal(spokenOpening('# Title\n\nOpening line after the heading.\n\n- list').text,'Opening line after the heading.');
  assert.equal(spokenOpening('Intro line:\n- first\n- second').text,'Intro line:','a list ends the opening');
  assert.deepEqual(spokenOpening(reply,{sentences:0,chars:0}),{text:reply,cut:false},'0 and 0 = full reply');});
-test('spoken reply: display-only sentences in the opening are dropped, never silencing the reply',()=>{const {spokenReply}=require('../src/pc/reply-text.cjs');
- assert.deepEqual(spokenReply('I added the rule. I saved a backup as `settings.json.bak` in your folder. They apply to new sessions.\n\n- details',{sentences:3,chars:400}),{ok:true,text:'I added the rule. They apply to new sessions. Full reply on screen.',opening:true});
- assert.deepEqual(spokenReply('Run `npm test` now.',{sentences:3,chars:400}),{ok:true,text:'The reply is on screen.',opening:true});
+test('spoken reply: paths and code in the opening are said in a short form, never silencing the reply',()=>{const {spokenReply}=require('../src/pc/reply-text.cjs');
+ assert.deepEqual(spokenReply('I added the rule. I saved a backup as `settings.json.bak` in your folder. They apply to new sessions.\n\n- details',{sentences:3,chars:400}),{ok:true,text:'I added the rule. I saved a backup as settings dot json dot bak in your folder. They apply to new sessions. Full reply on screen.',opening:true});
+ assert.deepEqual(spokenReply('Run `npm test` now.',{sentences:3,chars:400}),{ok:true,text:'Run npm test now.',opening:true},'a short command is said as it is');
+ assert.deepEqual(spokenReply('src/pc/x.cjs is fixed. Tests pass.',{sentences:3,chars:400}),{ok:true,text:'x dot cjs is fixed. Tests pass.',opening:true},'a reply that starts with a path');
+ assert.deepEqual(spokenReply('const x = 1;',{sentences:3,chars:400}),{ok:true,text:'The reply is on screen.',opening:true});
  assert.deepEqual(spokenReply('It is done: all good.',{sentences:3,chars:400}),{ok:true,text:'It is done: all good.',opening:true});
- assert.equal(spokenReply('const x = 1;').detail,'code','without an opening limit the full-reply rules apply');});
+ assert.deepEqual(spokenReply('Edit src/pc/client.cjs, then run `npm test`. The fix is in.'),{ok:true,text:'Edit client dot cjs, then run npm test. The fix is in.'},'full-reply mode reads it too');});
+
+test('code blocks, diffs, commands and data are described in a few words: what, how big, what they name',()=>{const {describeBlock,fileName,spokenReply}=require('../src/pc/reply-text.cjs');
+ const d=(info,body)=>describeBlock(info,body,fileName);
+ assert.equal(d('python','import json\n\ndef load_config(path):\n    with open(path) as f:\n        return json.load(f)\n\ndef save_config(path, data):\n    json.dump(data, open(path, "w"))'),'Python code, six lines, defining load config and save config.');
+ assert.equal(d('js','const renderList = (items) => items.map(x => x.name);\nfunction mount(el) {}\nclass Store {}'),'JavaScript code, three lines, defining render list, mount and store.');
+ assert.equal(d('java','public class Foo {\n  public static void main(String[] args) {}\n  private int count(int x) { return x; }\n}'),'Java code, four lines, defining foo, main and count.');
+ assert.equal(d('ts','export function a() {}\nexport function b() {}\nexport function c() {}\nexport function e() {}'),'TypeScript code, four lines, defining a, b, c and one more.');
+ assert.equal(d('','def main():\n    print(1)'),'Python code, two lines, defining main.','no tag: the language is guessed');
+ assert.equal(d('elixir','defmodule Hello do\nend'),'Elixir code, two lines.','an unknown tag is said as the language');
+ assert.equal(d('','x'),'Code, one line.');assert.equal(d('',''),'Code on screen.');
+ assert.equal(d('bash','npm test'),'npm test.','a short plain command is said as it is');
+ assert.equal(d('powershell','git fetch --all\ngit rebase origin/main\nnpm install --save-dev typescript'),'Commands for git and npm, three lines.');
+ assert.equal(d('bash','docker compose up --build -d'),'A docker command.');
+ assert.equal(d('json','{"name":"confab","version":"1.0","scripts":{},"license":"MIT"}'),'Data with name, version, scripts and one more.');
+ assert.equal(d('json','[1,2,3]'),'A list of three items.');
+ assert.equal(d('yaml','name: confab\nversion: 2\nmodels:\n  - a'),'YAML, four lines, with name, version and models.');
+ assert.equal(d('diff','--- a/src/pc/controller.cjs\n+++ b/src/pc/controller.cjs\n@@ -1 +1,2 @@\n-const T=1;\n+const T=2;\n+// longer'),'Changes to controller dot cjs: two lines added, one line removed.');
+ assert.equal(d('output','line one\nline two'),'Output on screen, two lines.');
+ // In a reply, the description takes the block's place and the prose around it is read as before.
+ assert.deepEqual(spokenReply('Run this:\n```bash\nnpm test\n```'),{ok:true,text:'Run this.\nnpm test.'});
+ assert.deepEqual(spokenReply('Run this:\n```bash\nnpm test\n```',{sentences:3,chars:400}),{ok:true,text:'Run this: npm test.',opening:true});
+ assert.deepEqual(spokenReply('I changed the timeout.\n--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-a\n+b\nThat should fix it.'),{ok:true,text:'I changed the timeout.\nChanges to x dot js: one line added, one line removed.\nThat should fix it.'});
+ assert.deepEqual(spokenReply('```json\n{"sets": 3}\n```'),spokenReply('{"sets": 3}'),'JSON in a block or on its own line is described the same way');
+ assert.deepEqual(spokenReply('```python\ndef a():\n    pass\n```'),spokenReply('```python\ndef a():\n    pass\n```'),'the same block is always described the same way');
+});
+
+test('punctuation after a path, an unclosed or stray fence, cmdlets and empty replies',()=>{const {describeBlock,fileName,spokenReply}=require('../src/pc/reply-text.cjs');
+ const o={sentences:3,chars:400};
+ // Punctuation after a Windows path stays out of the path, so its file name is still said.
+ for(const [mark,rest] of [[',',' then save.'],['?',' Yes.'],[';',' done.'],[':',' now.'],['!','']])
+  assert.match(spokenReply('Open C:\\x\\a.json'+mark+rest).text,/^Open a dot json[,?:!]/,mark);
+ // A fence that is never closed runs only to the next blank line; the prose after it is still read.
+ assert.equal(spokenReply('Here it is:\n```python\ndef a():\n    pass\n\nThat should work.').text,'Here it is.\nPython code, two lines, defining a.\nThat should work.');
+ assert.deepEqual(spokenReply('Use this:\n```\nnpm test'),{ok:true,text:'Use this.\nnpm test.'},'a reply cut short inside a block');
+ // A stray ``` in prose is not a block and does not silence the line.
+ assert.equal(spokenReply('Type ```js to start a block.').text,'Type js to start a block.');
+ assert.equal(spokenReply('Call ``a`b`` here.').text,'Call the code on screen here.','a double-backtick span is one span');
+ // PowerShell cmdlets are said as words.
+ assert.equal(describeBlock('powershell','Get-ChildItem src',fileName),'get child item src.');
+ assert.equal(describeBlock('powershell','Get-ChildItem -Recurse src',fileName),'A get child item command.');
+ assert.equal(describeBlock('powershell','Get-ChildItem -Recurse\nRemove-Item -Force x',fileName),'Commands for get child item and remove item, two lines.');
+ // An empty reply, or one with nothing to say, is silent in both modes.
+ for(const v of ['','   ',null,undefined,42]) assert.deepEqual(spokenReply(v,o),spokenReply(v),JSON.stringify(v));
+ assert.equal(spokenReply('',o).ok,false);
+});
